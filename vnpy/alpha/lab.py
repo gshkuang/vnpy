@@ -196,7 +196,11 @@ class AlphaLab:
 
             # Filter by date range
             df = df.filter((pl.col("datetime") >= start) & (pl.col("datetime") <= end))
-
+            
+            # Filter out data with length less than 300
+            if len(df) < 300:
+                continue
+                
             # Specify data types
             df = df.with_columns(
                 pl.col("open").cast(pl.Float32),
