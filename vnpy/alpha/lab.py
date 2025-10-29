@@ -15,6 +15,7 @@ from vnpy.trader.utility import extract_vt_symbol
 from .logger import logger
 from .dataset import AlphaDataset, to_datetime
 from .model import AlphaModel
+import joblib
 
 
 class AlphaLab:
@@ -249,13 +250,15 @@ class AlphaLab:
     def save_component_data(
         self,
         index_symbol: str,
-        index_components: dict[str, list[str]]
+        index_components: dict[str, set[str]]
     ) -> None:
         """Save index component data"""
         file_path: Path = self.component_path.joinpath(f"{index_symbol}")
 
         with shelve.open(str(file_path)) as db:
-            db.update(index_components)
+            # 统一存为 set，便于快速 membership 判断与差分
+            for k, v in index_components.items():
+                db[k] = set(v)
 
     @lru_cache      # noqa
     def load_component_data(
@@ -263,7 +266,7 @@ class AlphaLab:
         index_symbol: str,
         start: datetime | str,
         end: datetime | str
-    ) -> dict[datetime, list[str]]:
+    ) -> dict[datetime, set[str]]:
         """Load index component data as DataFrame"""
         file_path: Path = self.component_path.joinpath(f"{index_symbol}")
 
@@ -274,11 +277,13 @@ class AlphaLab:
             keys: list[str] = list(db.keys())
             keys.sort()
 
-            index_components: dict[datetime, list[str]] = {}
+            index_components: dict[datetime, set[str]] = {}
             for key in keys:
                 dt: datetime = datetime.strptime(key, "%Y-%m-%d")
                 if start <= dt <= end:
-                    index_components[dt] = db[key]
+                    components = db[key]
+                    # 兼容历史 list[str] 数据，统一转换为 set[str]
+                    index_components[dt] = components if isinstance(components, set) else set(components)
 
             return index_components
 
@@ -289,7 +294,7 @@ class AlphaLab:
         end: datetime | str
     ) -> list[str]:
         """Collect index component symbols"""
-        index_components: dict[datetime, list[str]] = self.load_component_data(
+        index_components: dict[datetime, set[str]] = self.load_component_data(
             index_symbol,
             start,
             end
@@ -309,7 +314,7 @@ class AlphaLab:
         end: datetime | str
     ) -> dict[str, list[tuple[datetime, datetime]]]:
         """Collect index component duration filters"""
-        index_components: dict[datetime, list[str]] = self.load_component_data(
+        index_components: dict[datetime, set[str]] = self.load_component_data(
             index_symbol,
             start,
             end
@@ -321,32 +326,39 @@ class AlphaLab:
         # Initialize component duration dictionary
         component_filters: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
 
-        # Get all component symbols
-        all_symbols: set[str] = set()
-        for vt_symbols in index_components.values():
-            all_symbols.update(vt_symbols)
+        # 单次扫描，使用集合差分追踪新增与移除，避免 per-symbol 的二重循环
+        active_start: dict[str, datetime] = {}
+        prev_components: set[str] = set()
+        prev_date: datetime | None = None
 
-        # Iterate through each component to identify its duration in the index
-        for vt_symbol in all_symbols:
-            period_start: datetime | None = None
-            period_end: datetime | None = None
+        for trading_date in trading_dates:
+            comps: set[str] = index_components[trading_date]
 
-            # Iterate through each trading day to identify continuous holding periods
-            for trading_date in trading_dates:
-                if vt_symbol in index_components[trading_date]:
-                    if period_start is None:
-                        period_start = trading_date
+            if prev_date is None:
+                # 首日出现的全部成分标记起始
+                for s in comps:
+                    active_start[s] = trading_date
+            else:
+                added: set[str] = comps - prev_components
+                removed: set[str] = prev_components - comps
 
-                    period_end = trading_date
-                else:
-                    if period_start and period_end:
-                        component_filters[vt_symbol].append((period_start, period_end))
-                        period_start = None
-                        period_end = None
+                # 新增的成分在当前日开始
+                for s in added:
+                    active_start[s] = trading_date
 
-            # Handle the last holding period
-            if period_start and period_end:
-                component_filters[vt_symbol].append((period_start, period_end))
+                # 被移除的成分在上一交易日结束
+                for s in removed:
+                    start_dt = active_start.pop(s, None)
+                    if start_dt is not None:
+                        component_filters[s].append((start_dt, prev_date))
+
+            prev_components = comps
+            prev_date = trading_date
+
+        # 扫描结束，仍在指数中的成分以最后一个交易日为结束
+        if prev_date is not None:
+            for s, start_dt in active_start.items():
+                component_filters[s].append((start_dt, prev_date))
 
         return component_filters
 
@@ -392,35 +404,29 @@ class AlphaLab:
 
     def save_dataset(self, name: str, dataset: AlphaDataset) -> None:
         """Save dataset"""
-        file_path: Path = self.dataset_path.joinpath(f"{name}.pkl")
-
-        with open(file_path, mode="wb") as f:
-            pickle.dump(dataset, f)
+        dir_path: Path = self.dataset_path.joinpath(name)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        dataset.save(dir_path)
 
     def load_dataset(self, name: str) -> AlphaDataset | None:
         """Load dataset"""
-        file_path: Path = self.dataset_path.joinpath(f"{name}.pkl")
-        if not file_path.exists():
-            logger.error(f"Dataset file {name} does not exist")
-            return None
-
-        with open(file_path, mode="rb") as f:
-            dataset: AlphaDataset = pickle.load(f)
-            return dataset
+        dir_path: Path = self.dataset_path.joinpath(name)
+        return AlphaDataset.load(dir_path)
 
     def remove_dataset(self, name: str) -> bool:
         """Remove dataset"""
-        file_path: Path = self.dataset_path.joinpath(f"{name}.pkl")
-        if not file_path.exists():
-            logger.error(f"Dataset file {name} does not exist")
-            return False
-
-        file_path.unlink()
+        dir_path: Path = self.dataset_path.joinpath(name)
+        if dir_path.exists() and dir_path.is_dir():
+            import shutil
+            shutil.rmtree(dir_path)
+            return True
         return True
 
     def list_all_datasets(self) -> list[str]:
         """List all datasets"""
-        return [file.stem for file in self.dataset_path.glob("*.pkl")]
+        names = [d.name for d in self.dataset_path.iterdir() if d.is_dir()]
+        names += [file.stem for file in self.dataset_path.glob("*.pkl")]
+        return names
 
     def save_model(self, name: str, model: AlphaModel) -> None:
         """Save model"""

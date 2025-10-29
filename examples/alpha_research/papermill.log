@@ -1,0 +1,191 @@
+nohup: 忽略输入
+['AVAXUSDT.BINANCE', 'WALUSDT.BINANCE', 'CAKEUSDT.BINANCE', 'XPLUSDT.BINANCE', 'UNIUSDT.BINANCE', 'DOGEUSDT.BINANCE', 'PENGUUSDT.BINANCE', 'EURUSDT.BINANCE', 'XRPUSDT.BINANCE', 'TRXUSDT.BINANCE']
+[32m2025-10-28 20:43:30[0m [31m[1mFile lab/crypto_1m/minute/WALUSDT.BINANCE.parquet does not exist[0m
+[32m2025-10-28 20:43:30[0m [31m[1mFile lab/crypto_1m/minute/XPLUSDT.BINANCE.parquet does not exist[0m
+shape: (5, 10)
+┌─────────────┬───────────┬───────────┬───────────┬───┬──────────┬─────────────┬──────┬────────────┐
+│ datetime    ┆ open      ┆ high      ┆ low       ┆ … ┆ turnover ┆ open_intere ┆ vwap ┆ vt_symbol  │
+│ ---         ┆ ---       ┆ ---       ┆ ---       ┆   ┆ ---      ┆ st          ┆ ---  ┆ ---        │
+│ datetime[μs ┆ f32       ┆ f32       ┆ f32       ┆   ┆ f32      ┆ ---         ┆ f32  ┆ str        │
+│ ]           ┆           ┆           ┆           ┆   ┆          ┆ f32         ┆      ┆            │
+╞═════════════╪═══════════╪═══════════╪═══════════╪═══╪══════════╪═════════════╪══════╪════════════╡
+│ 2023-10-27  ┆ 2.761609  ┆ 2.761609  ┆ 2.759045  ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ AVAXUSDT.B │
+│ 13:53:00    ┆           ┆           ┆           ┆   ┆          ┆             ┆      ┆ INANCE     │
+│ 2021-08-17  ┆ 6.87058   ┆ 6.873589  ┆ 6.867569  ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ TRXUSDT.BI │
+│ 10:29:00    ┆           ┆           ┆           ┆   ┆          ┆             ┆      ┆ NANCE      │
+│ 2025-06-16  ┆ 20.451468 ┆ 20.451468 ┆ 20.436419 ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ TRXUSDT.BI │
+│ 09:33:00    ┆           ┆           ┆           ┆   ┆          ┆             ┆      ┆ NANCE      │
+│ 2022-06-16  ┆ 0.155956  ┆ 0.155956  ┆ 0.155744  ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ CAKEUSDT.B │
+│ 18:15:00    ┆           ┆           ┆           ┆   ┆          ┆             ┆      ┆ INANCE     │
+│ 2021-12-25  ┆ 5.784605  ┆ 5.784605  ┆ 5.777998  ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ UNIUSDT.BI │
+│ 12:21:00    ┆           ┆           ┆           ┆   ┆          ┆             ┆      ┆ NANCE      │
+└─────────────┴───────────┴───────────┴───────────┴───┴──────────┴─────────────┴──────┴────────────┘
+fit_start_time: 2020-01-01 00:00:00
+fit_end_time: 2023-12-31 00:00:00
+[32m2025-10-28 20:43:31[0m [1m开始计算表达式因子特征[0m
+  0%|          | 0/159 [00:00<?, ?it/s]  1%|          | 1/159 [00:01<04:26,  1.69s/it]  1%|▏         | 2/159 [00:02<03:47,  1.45s/it]  2%|▏         | 3/159 [00:04<03:37,  1.40s/it]  3%|▎         | 4/159 [00:06<04:54,  1.90s/it]  3%|▎         | 5/159 [00:08<04:44,  1.85s/it]  4%|▍         | 6/159 [00:10<04:39,  1.82s/it]  4%|▍         | 7/159 [00:12<04:33,  1.80s/it]  5%|▌         | 8/159 [00:12<03:19,  1.32s/it]  6%|▌         | 9/159 [00:13<03:20,  1.34s/it]  6%|▋         | 10/159 [00:15<03:12,  1.29s/it]  7%|▋         | 11/159 [00:16<03:10,  1.29s/it]  8%|▊         | 12/159 [00:17<03:09,  1.29s/it]  8%|▊         | 13/159 [00:18<03:07,  1.28s/it]  9%|▉         | 14/159 [00:21<03:49,  1.58s/it]  9%|▉         | 15/159 [00:22<03:25,  1.43s/it] 10%|█         | 16/159 [00:23<03:32,  1.49s/it] 11%|█         | 17/159 [00:24<02:54,  1.23s/it] 11%|█▏        | 18/159 [00:26<03:18,  1.41s/it] 12%|█▏        | 19/159 [00:27<02:54,  1.25s/it] 13%|█▎        | 20/159 [00:28<02:57,  1.28s/it] 13%|█▎        | 21/159 [00:30<03:02,  1.32s/it] 14%|█▍        | 22/159 [00:31<03:05,  1.35s/it] 14%|█▍        | 23/159 [00:32<03:07,  1.38s/it] 15%|█▌        | 24/159 [00:34<03:25,  1.52s/it] 16%|█▌        | 25/159 [00:36<03:30,  1.57s/it] 16%|█▋        | 26/159 [00:37<02:54,  1.31s/it] 17%|█▋        | 27/159 [00:38<02:55,  1.33s/it] 18%|█▊        | 28/159 [00:40<03:29,  1.60s/it] 18%|█▊        | 29/159 [05:42<3:18:47, 91.75s/it] 19%|█▉        | 30/159 [05:56<2:26:35, 68.18s/it] 19%|█▉        | 31/159 [06:03<1:46:32, 49.94s/it] 21%|██        | 33/159 [06:18<1:03:53, 30.42s/it] 24%|██▍       | 38/159 [06:24<24:44, 12.27s/it]   27%|██▋       | 43/159 [06:35<14:23,  7.45s/it] 34%|███▍      | 54/159 [12:12<37:19, 21.33s/it] 35%|███▍      | 55/159 [12:17<34:53, 20.13s/it] 35%|███▌      | 56/159 [12:25<32:32, 18.96s/it] 36%|███▌      | 57/159 [12:44<32:20, 19.03s/it] 36%|███▋      | 58/159 [12:48<28:22, 16.85s/it] 39%|███▉      | 62/159 [12:50<15:21,  9.50s/it] 40%|███▉      | 63/159 [12:58<14:48,  9.26s/it] 40%|████      | 64/159 [16:13<1:03:10, 39.90s/it] 41%|████      | 65/159 [16:20<52:50, 33.73s/it]   42%|████▏     | 66/159 [16:26<43:03, 27.78s/it] 43%|████▎     | 68/159 [16:33<28:01, 18.47s/it] 47%|████▋     | 74/159 [18:22<25:52, 18.27s/it] 47%|████▋     | 75/159 [18:35<24:47, 17.70s/it] 48%|████▊     | 76/159 [18:40<21:40, 15.67s/it] 49%|████▉     | 78/159 [18:43<15:12, 11.27s/it] 50%|█████     | 80/159 [18:57<13:15, 10.07s/it] 52%|█████▏    | 83/159 [19:03<08:42,  6.88s/it] 53%|█████▎    | 84/159 [25:19<1:21:37, 65.29s/it] 53%|█████▎    | 85/159 [25:36<1:09:26, 56.30s/it]100%|██████████| 159/159 [25:36<00:00,  9.66s/it] 
+Feature calculation low_0 took: 0.023041725158691406 seconds | low / close
+Feature calculation std_30 took: 0.3417339324951172 seconds | ts_std(close, 30) / close
+Feature calculation resi_30 took: 310.24536085128784 seconds | ts_resi(close, 30) / close
+Feature calculation qtld_60 took: 387.15151143074036 seconds | ts_quantile(close, 60, 0.2) / close
+Feature calculation imin_60 took: 362.7685956954956 seconds | ts_argmin(low, 60) / 60
+Feature calculation cntd_10 took: 1.9391841888427734 seconds | ts_mean(close > ts_delay(close, 1), 10) - ts_mean(close < ts_delay(close, 1), 10)
+Feature calculation sumn_10 took: 2.8338305950164795 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 10) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 10) + 1e-12)
+Feature calculation vma_10 took: 0.5051558017730713 seconds | ts_mean(volume, 10) / (volume + 1e-12)
+Feature calculation wvma_10 took: 2.9748871326446533 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 10) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 10) + 1e-12)
+Feature calculation vsumn_10 took: 3.3575663566589355 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 10) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 10) + 1e-12)
+Feature calculation ksft_2 took: 0.10530757904052734 seconds | (close * 2 - high - low) / (high - low + 1e-12)
+Feature calculation std_5 took: 0.3374626636505127 seconds | ts_std(close, 5) / close
+Feature calculation resi_5 took: 315.2588496208191 seconds | ts_resi(close, 5) / close
+Feature calculation qtld_30 took: 380.99922823905945 seconds | ts_quantile(close, 30, 0.2) / close
+Feature calculation imin_30 took: 359.6470808982849 seconds | ts_argmin(low, 30) / 30
+Feature calculation cntp_20 took: 1.0256938934326172 seconds | ts_mean(close > ts_delay(close, 1), 20)
+Feature calculation cntd_20 took: 1.8764944076538086 seconds | ts_mean(close > ts_delay(close, 1), 20) - ts_mean(close < ts_delay(close, 1), 20)
+Feature calculation sumn_20 took: 2.571943998336792 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 20) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 20) + 1e-12)
+Feature calculation vma_20 took: 0.4601602554321289 seconds | ts_mean(volume, 20) / (volume + 1e-12)
+Feature calculation wvma_20 took: 2.818925142288208 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 20) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 20) + 1e-12)
+Feature calculation vsumn_20 took: 2.997668504714966 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 20) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 20) + 1e-12)
+Feature calculation klow took: 1.3062396049499512 seconds | (ts_less(open, close) - low) / open
+Feature calculation ma_20 took: 0.2918226718902588 seconds | ts_mean(close, 20) / close
+Feature calculation rsqr_20 took: 321.6495954990387 seconds | ts_rsquare(close, 20)
+Feature calculation qtld_20 took: 375.29938220977783 seconds | ts_quantile(close, 20, 0.2) / close
+Feature calculation imin_5 took: 354.7112216949463 seconds | ts_argmin(low, 5) / 5
+Feature calculation cord_10 took: 5.228307485580444 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 10)
+Feature calculation cntp_30 took: 0.9789326190948486 seconds | ts_mean(close > ts_delay(close, 1), 30)
+Feature calculation cntd_30 took: 2.329714775085449 seconds | ts_mean(close > ts_delay(close, 1), 30) - ts_mean(close < ts_delay(close, 1), 30)
+Feature calculation sumn_30 took: 2.891475200653076 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 30) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 30) + 1e-12)
+Feature calculation vma_30 took: 0.4049985408782959 seconds | ts_mean(volume, 30) / (volume + 1e-12)
+Feature calculation wvma_30 took: 2.6847293376922607 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 30) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 30) + 1e-12)
+Feature calculation vsumn_30 took: 3.1644163131713867 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 30) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 30) + 1e-12)
+Feature calculation klen took: 0.04183030128479004 seconds | (high - low) / open
+Feature calculation roc_30 took: 0.3046252727508545 seconds | ts_delay(close, 30) / close
+Feature calculation beta_30 took: 316.0763952732086 seconds | ts_slope(close, 30) / close
+Feature calculation min_30 took: 0.5411033630371094 seconds | ts_min(low, 30) / close
+Feature calculation qtlu_60 took: 387.3601493835449 seconds | ts_quantile(close, 60, 0.8) / close
+Feature calculation imin_20 took: 364.24847388267517 seconds | ts_argmin(low, 20) / 20
+Feature calculation cntp_60 took: 1.0729448795318604 seconds | ts_mean(close > ts_delay(close, 1), 60)
+Feature calculation cntd_60 took: 1.9817314147949219 seconds | ts_mean(close > ts_delay(close, 1), 60) - ts_mean(close < ts_delay(close, 1), 60)
+Feature calculation sumn_60 took: 2.7719409465789795 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 60) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 60) + 1e-12)
+Feature calculation vma_60 took: 0.5180892944335938 seconds | ts_mean(volume, 60) / (volume + 1e-12)
+Feature calculation wvma_60 took: 2.7794227600097656 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 60) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 60) + 1e-12)
+Feature calculation vsumn_60 took: 2.979008674621582 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 60) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 60) + 1e-12)
+Feature calculation kup took: 1.339818000793457 seconds | (high - ts_greater(open, close)) / open
+Feature calculation ma_5 took: 0.28067469596862793 seconds | ts_mean(close, 5) / close
+Feature calculation rsqr_5 took: 319.3372766971588 seconds | ts_rsquare(close, 5)
+Feature calculation qtlu_30 took: 385.9855411052704 seconds | ts_quantile(close, 30, 0.8) / close
+Feature calculation imin_10 took: 368.22801423072815 seconds | ts_argmin(low, 10) / 10
+Feature calculation cntn_5 took: 0.9622910022735596 seconds | ts_mean(close < ts_delay(close, 1), 5)
+Feature calculation sump_5 took: 3.0218441486358643 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 5) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 5) + 1e-12)
+Feature calculation sumd_5 took: 4.514791011810303 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 5) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 5)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 5) + 1e-12)
+Feature calculation vstd_5 took: 0.4762253761291504 seconds | ts_std(volume, 5) / (volume + 1e-12)
+Feature calculation vsump_5 took: 2.641528844833374 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 5) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 5) + 1e-12)
+Feature calculation vsumd_5 took: 4.1574015617370605 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 5) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 5)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 5) + 1e-12)
+Feature calculation kup_2 took: 1.3726310729980469 seconds | (high - ts_greater(open, close)) / (high - low + 1e-12)
+Feature calculation ma_10 took: 0.2609367370605469 seconds | ts_mean(close, 10) / close
+Feature calculation rsqr_10 took: 317.6458251476288 seconds | ts_rsquare(close, 10)
+Feature calculation qtlu_20 took: 368.6480851173401 seconds | ts_quantile(close, 20, 0.8) / close
+Feature calculation imax_5 took: 352.61924481391907 seconds | ts_argmax(high, 5) / 5
+Feature calculation corr_5 took: 3.5625367164611816 seconds | ts_corr(close, ts_log(volume + 1), 5)
+Feature calculation corr_10 took: 3.6319611072540283 seconds | ts_corr(close, ts_log(volume + 1), 10)
+Feature calculation corr_20 took: 3.920609474182129 seconds | ts_corr(close, ts_log(volume + 1), 20)
+Feature calculation cord_20 took: 4.768939971923828 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 20)
+Feature calculation cntn_10 took: 1.0492842197418213 seconds | ts_mean(close < ts_delay(close, 1), 10)
+Feature calculation sump_10 took: 3.3594863414764404 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 10) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 10) + 1e-12)
+Feature calculation sumd_10 took: 4.99232029914856 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 10) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 10)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 10) + 1e-12)
+Feature calculation vstd_10 took: 0.41979503631591797 seconds | ts_std(volume, 10) / (volume + 1e-12)
+Feature calculation vsump_10 took: 2.7686400413513184 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 10) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 10) + 1e-12)
+Feature calculation vsumd_10 took: 5.1440958976745605 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 10) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 10)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 10) + 1e-12)
+Feature calculation klow_2 took: 1.324981927871704 seconds | ((ts_less(open, close) - low) / (high - low + 1e-12))
+Feature calculation ma_30 took: 0.293581485748291 seconds | ts_mean(close, 30) / close
+Feature calculation rsqr_30 took: 316.3961718082428 seconds | ts_rsquare(close, 30)
+Feature calculation qtld_10 took: 371.11759757995605 seconds | ts_quantile(close, 10, 0.2) / close
+Feature calculation imax_60 took: 363.28908348083496 seconds | ts_argmax(high, 60) / 60
+Feature calculation cord_30 took: 5.784439563751221 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 30)
+Feature calculation cntn_20 took: 0.8214163780212402 seconds | ts_mean(close < ts_delay(close, 1), 20)
+Feature calculation sump_20 took: 2.966402769088745 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 20) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 20) + 1e-12)
+Feature calculation sumd_20 took: 5.443908452987671 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 20) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 20)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 20) + 1e-12)
+Feature calculation vstd_20 took: 0.537651777267456 seconds | ts_std(volume, 20) / (volume + 1e-12)
+Feature calculation vsump_20 took: 2.4312703609466553 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 20) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 20) + 1e-12)
+Feature calculation vsumd_20 took: 5.543962240219116 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 20) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 20)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 20) + 1e-12)
+Feature calculation roc_10 took: 0.3130838871002197 seconds | ts_delay(close, 10) / close
+Feature calculation beta_10 took: 313.5035424232483 seconds | ts_slope(close, 10) / close
+Feature calculation min_5 took: 0.5130219459533691 seconds | ts_min(low, 5) / close
+Feature calculation min_20 took: 0.5156011581420898 seconds | ts_min(low, 20) / close
+Feature calculation qtlu_10 took: 363.72549057006836 seconds | ts_quantile(close, 10, 0.8) / close
+Feature calculation rsv_20 took: 1.682361125946045 seconds | (close - ts_min(low, 20)) / (ts_max(high, 20) - ts_min(low, 20) + 1e-12)
+Feature calculation rsv_60 took: 1.622105598449707 seconds | (close - ts_min(low, 60)) / (ts_max(high, 60) - ts_min(low, 60) + 1e-12)
+Feature calculation imax_30 took: 361.8663673400879 seconds | ts_argmax(high, 30) / 30
+Feature calculation corr_60 took: 4.082556962966919 seconds | ts_corr(close, ts_log(volume + 1), 60)
+Feature calculation cntp_5 took: 1.4907910823822021 seconds | ts_mean(close > ts_delay(close, 1), 5)
+Feature calculation cntn_30 took: 1.020843505859375 seconds | ts_mean(close < ts_delay(close, 1), 30)
+Feature calculation sump_30 took: 3.003589153289795 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 30) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 30) + 1e-12)
+Feature calculation sumd_30 took: 5.545387268066406 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 30) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 30)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 30) + 1e-12)
+Feature calculation vstd_30 took: 0.4914278984069824 seconds | ts_std(volume, 30) / (volume + 1e-12)
+Feature calculation vsump_30 took: 2.4387598037719727 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 30) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 30) + 1e-12)
+Feature calculation vsumd_30 took: 5.870251178741455 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 30) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 30)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 30) + 1e-12)
+Feature calculation roc_5 took: 0.292940616607666 seconds | ts_delay(close, 5) / close
+Feature calculation beta_5 took: 301.7441143989563 seconds | ts_slope(close, 5) / close
+Feature calculation max_5 took: 0.5155215263366699 seconds | ts_max(high, 5) / close
+Feature calculation max_10 took: 0.5394001007080078 seconds | ts_max(high, 10) / close
+Feature calculation max_20 took: 0.4041612148284912 seconds | ts_max(high, 20) / close
+Feature calculation max_30 took: 0.5388307571411133 seconds | ts_max(high, 30) / close
+Feature calculation max_60 took: 0.5608556270599365 seconds | ts_max(high, 60) / close
+Feature calculation min_10 took: 0.47207069396972656 seconds | ts_min(low, 10) / close
+Feature calculation qtlu_5 took: 361.2886607646942 seconds | ts_quantile(close, 5, 0.8) / close
+Feature calculation rsv_5 took: 1.4077544212341309 seconds | (close - ts_min(low, 5)) / (ts_max(high, 5) - ts_min(low, 5) + 1e-12)
+Feature calculation rsv_10 took: 1.7267787456512451 seconds | (close - ts_min(low, 10)) / (ts_max(high, 10) - ts_min(low, 10) + 1e-12)
+Feature calculation rsv_30 took: 1.4385743141174316 seconds | (close - ts_min(low, 30)) / (ts_max(high, 30) - ts_min(low, 30) + 1e-12)
+Feature calculation imax_10 took: 364.1765024662018 seconds | ts_argmax(high, 10) / 10
+Feature calculation corr_30 took: 3.6435275077819824 seconds | ts_corr(close, ts_log(volume + 1), 30)
+Feature calculation cord_60 took: 5.628278017044067 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 60)
+Feature calculation cntn_60 took: 0.9453420639038086 seconds | ts_mean(close < ts_delay(close, 1), 60)
+Feature calculation sump_60 took: 2.9555535316467285 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 60) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 60) + 1e-12)
+Feature calculation sumd_60 took: 5.249345541000366 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 60) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 60)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 60) + 1e-12)
+Feature calculation wvma_5 took: 2.9368503093719482 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 5) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 5) + 1e-12)
+Feature calculation vsumn_5 took: 2.861250400543213 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 5) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 5) + 1e-12)
+Feature calculation label took: 1.0860247611999512 seconds | ts_delay(close, -3) / ts_delay(close, -1) - 1
+Feature calculation kmid took: 0.04325723648071289 seconds | (close - open) / open
+Feature calculation roc_20 took: 0.31485843658447266 seconds | ts_delay(close, 20) / close
+Feature calculation beta_20 took: 318.43462800979614 seconds | ts_slope(close, 20) / close
+Feature calculation min_60 took: 0.37071895599365234 seconds | ts_min(low, 60) / close
+Feature calculation qtld_5 took: 364.1270318031311 seconds | ts_quantile(close, 5, 0.2) / close
+Feature calculation imax_20 took: 365.4398169517517 seconds | ts_argmax(high, 20) / 20
+Feature calculation cord_5 took: 5.2110865116119385 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 5)
+Feature calculation cntp_10 took: 0.8372790813446045 seconds | ts_mean(close > ts_delay(close, 1), 10)
+Feature calculation cntd_5 took: 1.938108205795288 seconds | ts_mean(close > ts_delay(close, 1), 5) - ts_mean(close < ts_delay(close, 1), 5)
+Feature calculation sumn_5 took: 2.771244764328003 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 5) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 5) + 1e-12)
+Feature calculation vma_5 took: 0.6856057643890381 seconds | ts_mean(volume, 5) / (volume + 1e-12)
+Feature calculation vstd_60 took: 0.3916456699371338 seconds | ts_std(volume, 60) / (volume + 1e-12)
+Feature calculation vsump_60 took: 2.831085681915283 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 60) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 60) + 1e-12)
+Feature calculation vsumd_60 took: 4.9191954135894775 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 60) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 60)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 60) + 1e-12)
+Feature calculation open_0 took: 0.02308368682861328 seconds | open / close
+Feature calculation std_10 took: 0.3583197593688965 seconds | ts_std(close, 10) / close
+Feature calculation resi_10 took: 314.1856310367584 seconds | ts_resi(close, 10) / close
+Feature calculation rank_5 took: 579.7706184387207 seconds | ts_rank(close, 5)
+Feature calculation imxd_5 took: 544.1325724124908 seconds | (ts_argmax(high, 5) - ts_argmin(low, 5)) / 5
+Feature calculation vwap_0 took: 0.024401187896728516 seconds | vwap / close
+Feature calculation std_60 took: 0.37372303009033203 seconds | ts_std(close, 60) / close
+Feature calculation resi_60 took: 327.35647678375244 seconds | ts_resi(close, 60) / close
+Feature calculation rank_60 took: 591.3167972564697 seconds | ts_rank(close, 60)
+Feature calculation imxd_60 took: 534.4131505489349 seconds | (ts_argmax(high, 60) - ts_argmin(low, 60)) / 60
+Feature calculation ksft took: 0.06860947608947754 seconds | (close * 2 - high - low) / open
+Feature calculation ma_60 took: 0.3248922824859619 seconds | ts_mean(close, 60) / close
+Feature calculation rsqr_60 took: 328.07945013046265 seconds | ts_rsquare(close, 60)
+Feature calculation rank_30 took: 583.6691207885742 seconds | ts_rank(close, 30)
+Feature calculation imxd_20 took: 544.8868141174316 seconds | (ts_argmax(high, 20) - ts_argmin(low, 20)) / 20
+Feature calculation high_0 took: 0.02807927131652832 seconds | high / close
+Feature calculation std_20 took: 0.3841876983642578 seconds | ts_std(close, 20) / close
+Feature calculation resi_20 took: 317.38065099716187 seconds | ts_resi(close, 20) / close
+Feature calculation rank_20 took: 588.8787190914154 seconds | ts_rank(close, 20)
+Feature calculation imxd_30 took: 544.5413813591003 seconds | (ts_argmax(high, 30) - ts_argmin(low, 30)) / 30
+Feature calculation kmid_2 took: 0.0864248275756836 seconds | (close - open) / (high - low + 1e-12)
+Feature calculation roc_60 took: 0.33925914764404297 seconds | ts_delay(close, 60) / close
+Feature calculation beta_60 took: 331.6460311412811 seconds | ts_slope(close, 60) / close
+Feature calculation rank_10 took: 585.3189108371735 seconds | ts_rank(close, 10)
+Feature calculation imxd_10 took: 553.1018176078796 seconds | (ts_argmax(high, 10) - ts_argmin(low, 10)) / 10
+[32m2025-10-28 21:09:10[0m [1m开始合并结果数据因子特征[0m
+0it [00:00, ?it/s]0it [00:00, ?it/s]
+[32m2025-10-28 21:09:10[0m [1m开始筛选成分股数据[0m
+  0%|          | 0/42 [00:00<?, ?it/s]  2%|▏         | 1/42 [00:00<00:12,  3.37it/s]  7%|▋         | 3/42 [00:00<00:07,  5.37it/s] 12%|█▏        | 5/42 [00:00<00:06,  5.93it/s] 14%|█▍        | 6/42 [00:01<00:07,  4.87it/s] 17%|█▋        | 7/42 [00:01<00:06,  5.58it/s] 19%|█▉        | 8/42 [00:01<00:07,  4.61it/s] 21%|██▏       | 9/42 [00:01<00:08,  4.08it/s] 24%|██▍       | 10/42 [00:02<00:08,  3.72it/s] 33%|███▎      | 14/42 [00:02<00:03,  8.30it/s] 43%|████▎     | 18/42 [00:02<00:01, 13.24it/s] 52%|█████▏    | 22/42 [00:02<00:01, 18.06it/s] 62%|██████▏   | 26/42 [00:02<00:00, 21.54it/s] 74%|███████▍  | 31/42 [00:02<00:00, 26.88it/s] 86%|████████▌ | 36/42 [00:02<00:00, 30.64it/s] 95%|█████████▌| 40/42 [00:03<00:00, 31.63it/s]100%|██████████| 42/42 [00:03<00:00, 13.46it/s]
+/home/lai/miniconda3/lib/python3.13/multiprocessing/resource_tracker.py:324: UserWarning: resource_tracker: There appear to be 6 leaked semaphore objects to clean up at shutdown: {'/loky-2900334-qgsq87wd', '/loky-2900334-qo_jjp37', '/loky-2900334-2wctn1nx', '/loky-2900334-au2_xn7a', '/loky-2900334-p1hldz1_', '/loky-2900334-xghszqh1'}
+  warnings.warn(

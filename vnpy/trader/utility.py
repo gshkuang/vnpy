@@ -23,7 +23,7 @@ def extract_vt_symbol(vt_symbol: str) -> tuple[str, Exchange]:
     """
     :return: (symbol, exchange)
     """
-    print(f"extract_vt_symbol: {vt_symbol}")
+    # print(f"extract_vt_symbol: {vt_symbol}")
     symbol, exchange_str = vt_symbol.rsplit(".", 1)
     return symbol, Exchange(exchange_str)
 

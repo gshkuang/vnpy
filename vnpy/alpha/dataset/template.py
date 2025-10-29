@@ -8,16 +8,12 @@ from multiprocessing.context import BaseContext
 import polars as pl
 import pandas as pd
 from tqdm import tqdm
-from alphalens.utils import get_clean_factor_and_forward_returns    # type: ignore
-from alphalens.tears import create_full_tear_sheet                  # type: ignore
-
+from alphalens.utils import get_clean_factor_and_forward_returns  # type: ignore
+from alphalens.tears import create_full_tear_sheet  # type: ignore
+import pickle
+from pathlib import Path
 from ..logger import logger
-from .utility import (
-    to_datetime,
-    Segment,
-    calculate_by_expression,
-    calculate_by_polars
-)
+from .utility import to_datetime, Segment, calculate_by_expression, calculate_by_polars
 
 
 class AlphaDataset:
@@ -29,7 +25,7 @@ class AlphaDataset:
         train_period: tuple[str, str],
         valid_period: tuple[str, str],
         test_period: tuple[str, str],
-        process_type: str = "append"
+        process_type: str = "append",
     ) -> None:
         """Constructor"""
         self.df: pl.DataFrame = df
@@ -44,7 +40,7 @@ class AlphaDataset:
         self.data_periods: dict[Segment, tuple[str, str]] = {
             Segment.TRAIN: train_period,
             Segment.VALID: valid_period,
-            Segment.TEST: test_period
+            Segment.TEST: test_period,
         }
 
         self.feature_expressions: dict[str, str | pl.expr.expr.Expr] = {}
@@ -59,7 +55,7 @@ class AlphaDataset:
         self,
         name: str,
         expression: str | pl.expr.expr.Expr | None = None,
-        result: pl.DataFrame | None = None
+        result: pl.DataFrame | None = None,
     ) -> None:
         """
         Add a feature expression
@@ -78,7 +74,9 @@ class AlphaDataset:
         """
         self.label_expression = expression
 
-    def add_processor(self, task: str, processor: Callable[[pl.DataFrame], None]) -> None:
+    def add_processor(
+        self, task: str, processor: Callable[[pl.DataFrame], None]
+    ) -> None:
         """
         Add a feature preprocessor
         """
@@ -87,7 +85,9 @@ class AlphaDataset:
         else:
             self.learn_processors.append(processor)
 
-    def prepare_data(self, filters: dict | None = None, max_workers: int | None = None) -> None:
+    def prepare_data(
+        self, filters: dict | None = None, max_workers: int | None = None
+    ) -> None:
         """
         Generate required data
         """
@@ -95,15 +95,20 @@ class AlphaDataset:
         results: list = []
 
         # Iterate through expressions for calculation
-        expressions: list[tuple[str, str | pl.expr.expr.Expr]] = list(self.feature_expressions.items())
+        expressions: list[tuple[str, str | pl.expr.expr.Expr]] = list(
+            self.feature_expressions.items()
+        )
 
         if self.label_expression:
             expressions.append(("label", self.label_expression))
 
         # Create process pool
         logger.info("开始计算表达式因子特征")
+        t_expr_start = time.time()
 
-        args: list[tuple] = [(self.df, name, expression) for name, expression in expressions]
+        args: list[tuple] = [
+            (self.df, name, expression) for name, expression in expressions
+        ]
 
         context: BaseContext = get_context("spawn")
 
@@ -115,56 +120,115 @@ class AlphaDataset:
             for result in tqdm(it, total=len(args)):
                 results.append(result)
 
+        t_expr_end = time.time()
+        logger.info(f"表达式计算完成 | 数量: {len(args)} | 耗时: {t_expr_end - t_expr_start:.3f}s")
+
+        t_withcols_start = time.time()
         self.result_df = self.df.with_columns(results)
+        t_withcols_end = time.time()
+        logger.info(f"合并表达式结果到 DataFrame | 耗时: {t_withcols_end - t_withcols_start:.3f}s")
 
         # Merge result data factor features
         logger.info("开始合并结果数据因子特征")
+        t_merge_start = time.time()
 
         for name, feature_result in tqdm(self.feature_results.items()):
             feature_result = feature_result.rename({"data": name})
-            self.result_df = self.result_df.join(feature_result, on=["datetime", "vt_symbol"], how="inner")
+            self.result_df = self.result_df.join(
+                feature_result, on=["datetime", "vt_symbol"], how="inner"
+            )
+
+        t_merge_end = time.time()
+        logger.info(
+            f"合并结果数据因子特征完成 | 数量: {len(self.feature_results)} | 耗时: {t_merge_end - t_merge_start:.3f}s"
+        )
 
         # Generate raw data
+        t_raw_start = time.time()
         raw_df = self.result_df.fill_null(float("nan"))
+        t_raw_end = time.time()
+        logger.info(f"生成 raw_df（填充 NaN）| 耗时: {t_raw_end - t_raw_start:.3f}s")
 
         if filters:
             logger.info("开始筛选成分股数据")
+            t_filter_start = time.time()
 
-            filtered_df = pl.DataFrame()
-
-            for vt_symbol, ranges in tqdm(filters.items(), total=len(filters)):
+            # 构造区间 DataFrame 并转换为 datetime
+            ranges_rows: list[dict] = []
+            for vt_symbol, ranges in filters.items():
                 for start, end in ranges:
-                    temp_df = raw_df.filter(
-                        (pl.col("vt_symbol") == vt_symbol) & (pl.col("datetime") >= pl.lit(start)) & (pl.col("datetime") <= pl.lit(end))
+                    ranges_rows.append(
+                        {
+                            "vt_symbol": vt_symbol,
+                            "range_start": to_datetime(start),
+                            "range_end": to_datetime(end),
+                        }
                     )
-                    filtered_df = pl.concat([filtered_df, temp_df])
+
+            ranges_df = pl.DataFrame(ranges_rows).sort(["vt_symbol", "range_start"])
+
+            # join_asof 需要按时间列排序
+            raw_df = raw_df.sort(["vt_symbol", "datetime"])
+            # 对齐每条数据到最近的区间起点（同 vt_symbol）
+            joined = raw_df.join_asof(
+                ranges_df,
+                left_on="datetime",
+                right_on="range_start",
+                by="vt_symbol",
+                strategy="backward",
+            )
+
+            # 仅保留在区间内的行：range_start 非空 且 datetime <= range_end
+            filtered_df = joined.filter(
+                pl.col("range_start").is_not_null()
+                & (pl.col("datetime") <= pl.col("range_end"))
+            ).select(raw_df.columns)
+
 
             raw_df = filtered_df
+            t_filter_end = time.time()
+            logger.info(f"筛选成分股数据完成 | 合计合并条目: {len(filters)} | 耗时: {t_filter_end - t_filter_start:.3f}s")
 
         # Only keep feature columns
-        select_columns: list[str] = ["datetime", "vt_symbol"] + raw_df.columns[self.df.width:]
+        t_select_sort_start = time.time()
+        select_columns: list[str] = ["datetime", "vt_symbol"] + raw_df.columns[
+            self.df.width :
+        ]
         self.raw_df = raw_df.select(select_columns).sort(["datetime", "vt_symbol"])
+        t_select_sort_end = time.time()
+        logger.info(f"选择特征列并排序完成 | 列数: {len(select_columns)} | 耗时: {t_select_sort_end - t_select_sort_start:.3f}s")
 
         # Generate inference data
         self.infer_df = self.raw_df
-        for processor in self.infer_processors:
+        for i, processor in enumerate(self.infer_processors, start=1):
+            t_proc_start = time.time()
             self.infer_df = processor(df=self.infer_df)
+            t_proc_end = time.time()
+            proc_name = getattr(processor, "__name__", processor.__class__.__name__)
+            logger.info(f"infer 处理器[{i}] {proc_name} 完成 | 耗时: {t_proc_end - t_proc_start:.3f}s")
 
         # Generate learning data
+        t_learn_assign_start = time.time()
         if self.process_type == "append":
             self.learn_df = self.infer_df
         else:
             self.learn_df = self.raw_df
+        t_learn_assign_end = time.time()
+        logger.info(f"学习数据赋值完成（process_type={self.process_type}）| 耗时: {t_learn_assign_end - t_learn_assign_start:.3f}s")
 
-        for processor in self.learn_processors:
+        for i, processor in enumerate(self.learn_processors, start=1):
+            t_proc_start = time.time()
             self.learn_df = processor(df=self.learn_df)
+            t_proc_end = time.time()
+            proc_name = getattr(processor, "__name__", processor.__class__.__name__)
+            logger.info(f"learn 处理器[{i}] {proc_name} 完成 | 耗时: {t_proc_end - t_proc_start:.3f}s")
 
-    def fetch_raw(self, segment: Segment) -> pl.DataFrame:
-        """
-        Get raw data for a specific segment
-        """
-        start, end = self.data_periods[segment]
-        return query_by_time(self.raw_df, start, end)
+    # def fetch_raw(self, segment: Segment) -> pl.DataFrame:
+    #     """
+    #     Get raw data for a specific segment
+    #     """
+    #     start, end = self.data_periods[segment]
+    #     return query_by_time(self.raw_df, start, end)
 
     def fetch_infer(self, segment: Segment) -> pl.DataFrame:
         """
@@ -198,17 +262,27 @@ class AlphaDataset:
         df: pl.DataFrame = query_by_time(self.result_df, start, end)
 
         # Extract feature
-        feature_df: pd.DataFrame = df.select(["datetime", "vt_symbol", name]).to_pandas()
+        feature_df: pd.DataFrame = df.select(
+            ["datetime", "vt_symbol", name]
+        ).to_pandas()
         feature_df.set_index(["datetime", "vt_symbol"], inplace=True)
+        # print(feature_df.head())
+        freq: str = pd.infer_freq(feature_df.index.levels[0])
+        print(f"infer freq: {freq}")
+        feature_df.index.levels[0].freq = freq
 
         feature_s: pd.Series = feature_df[name]
 
         # Extract price
-        price_df: pd.DataFrame = df.select(["datetime", "vt_symbol", "close"]).to_pandas()
+        price_df: pd.DataFrame = df.select(
+            ["datetime", "vt_symbol", "close"]
+        ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
 
         # Merge data
-        clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(feature_s, price_df, quantiles=10)
+        clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
+            feature_s, price_df, quantiles=10
+        )
 
         # Perform analysis
         create_full_tear_sheet(clean_data)
@@ -228,24 +302,85 @@ class AlphaDataset:
         signal_df: pd.DataFrame = signal.to_pandas()
         signal_df.set_index(["datetime", "vt_symbol"], inplace=True)
         signal_s: pd.Series = signal_df["signal"]
+        freq: str = pd.infer_freq(signal_df.index.levels[0])
+        print(f"infer freq: {freq}")
+        signal_df.index.levels[0].freq = freq
 
         # Extract price
-        price_df: pd.DataFrame = df.select(["datetime", "vt_symbol", "close"]).to_pandas()
+        price_df: pd.DataFrame = df.select(
+            ["datetime", "vt_symbol", "close"]
+        ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
 
         # Merge data
         clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
-            signal_s,
-            price_df,
-            max_loss=1.0,
-            quantiles=10
+            signal_s, price_df, max_loss=1.0, quantiles=10
         )
 
         # Perform analysis
         create_full_tear_sheet(clean_data)
 
+    def save(self, path: Path ) -> None:
+        """
+        将数据集保存到目录：每个DataFrame为parquet，元数据为pkl。
+        仅保存轻量元数据，避免表达式/处理器等不可序列化对象。
+        """
 
-def query_by_time(df: pl.DataFrame, start: datetime | str = "", end: datetime | str = "") -> pl.DataFrame:
+        # 保存元数据（分段与处理类型）
+        periods: dict[str, tuple[str, str]] = {
+            seg.name: period for seg, period in self.data_periods.items()
+        }
+        meta = {
+            "schema_version": 1,
+            "process_type": self.process_type,
+            "periods": periods
+        }
+        with open(path.joinpath("meta.pkl"), "wb") as f:
+            pickle.dump(meta, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # 逐个保存DataFrame为parquet（存在才保存）
+        for attr in ["df", "result_df",  "infer_df", "learn_df"]:
+            df_obj = getattr(self, attr, None)
+            if isinstance(df_obj, pl.DataFrame):
+                df_obj.write_parquet(path.joinpath(f"{attr}.parquet"))
+
+    @classmethod
+    def load(cls, path: Path) -> "AlphaDataset":
+        """
+        从目录加载数据集：读取元数据与各DataFrame的parquet。
+        """
+        meta_file = path.joinpath("meta.pkl")
+        if not meta_file.exists():
+            raise FileNotFoundError(f"Dataset meta file not found: {meta_file}")
+
+        with open(meta_file, "rb") as f:
+            meta = pickle.load(f)
+
+        periods: dict[str, tuple[str, str]] = meta.get("periods", {})
+        train = periods.get("TRAIN", ("", ""))
+        valid = periods.get("VALID", ("", ""))
+        test = periods.get("TEST", ("", ""))
+        process_type = meta.get("process_type", "append")
+
+        # df 为必需
+        df_file = path.joinpath("df.parquet")
+        if not df_file.exists():
+            raise FileNotFoundError(f"Dataset main df file not found: {df_file}")
+        df = pl.read_parquet(df_file)
+
+        dataset = cls(df, train, valid, test, process_type=process_type)
+
+        for attr in ["result_df", "raw_df", "infer_df", "learn_df"]:
+            file = path.joinpath(f"{attr}.parquet")
+            if file.exists():
+                setattr(dataset, attr, pl.read_parquet(file))
+
+        return dataset
+
+
+def query_by_time(
+    df: pl.DataFrame, start: datetime | str = "", end: datetime | str = ""
+) -> pl.DataFrame:
     """
     Filter DataFrame based on time range
     """
@@ -260,7 +395,9 @@ def query_by_time(df: pl.DataFrame, start: datetime | str = "", end: datetime | 
     return df.sort(["datetime", "vt_symbol"])
 
 
-def calculate_feature(args: tuple[pl.DataFrame, str, str | pl.expr.expr.Expr]) -> pl.Series:
+def calculate_feature(
+    args: tuple[pl.DataFrame, str, str | pl.expr.expr.Expr],
+) -> pl.Series:
     """
     Calculate feature by expression
     """
