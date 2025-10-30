@@ -1,6 +1,18 @@
 import polars as pl
 
 from vnpy.alpha import AlphaDataset
+from vnpy.alpha.dataset.utility import FeatProxy
+from vnpy.alpha.dataset.ts_function import (
+    ts_delay, ts_min, ts_max,
+    ts_argmax, ts_argmin,
+    ts_rank, ts_sum,
+    ts_mean, ts_std,
+    ts_slope, ts_quantile,
+    ts_rsquare, ts_resi,
+    ts_corr,
+    ts_less, ts_greater,
+    ts_log, ts_abs
+)
 
 
 class Alpha158(AlphaDataset):
@@ -12,119 +24,155 @@ class Alpha158(AlphaDataset):
         train_period: tuple[str, str],
         valid_period: tuple[str, str],
         test_period: tuple[str, str]
-    ) -> None:
-        """Constructor"""
-        super().__init__(
-            df=df,
-            train_period=train_period,
-            valid_period=valid_period,
-            test_period=test_period,
-        )
+        ) -> None:
+            """Constructor"""
+            super().__init__(
+                df=df,
+                train_period=train_period,
+                valid_period=valid_period,
+                test_period=test_period,
+            )
 
-        # Candlestick pattern features
-        self.add_feature("kmid", "(close - open) / open")
-        self.add_feature("klen", "(high - low) / open")
-        self.add_feature("kmid_2", "(close - open) / (high - low + 1e-12)")
-        self.add_feature("kup", "(high - ts_greater(open, close)) / open")
-        self.add_feature("kup_2", "(high - ts_greater(open, close)) / (high - low + 1e-12)")
-        self.add_feature("klow", "(ts_less(open, close) - low) / open")
-        self.add_feature("klow_2", "((ts_less(open, close) - low) / (high - low + 1e-12))")
-        self.add_feature("ksft", "(close * 2 - high - low) / open")
-        self.add_feature("ksft_2", "(close * 2 - high - low) / (high - low + 1e-12)")
+            # Build base DataProxy columns
+            o = FeatProxy.col2proxy(self.df, "open")
+            h = FeatProxy.col2proxy(self.df, "high")
+            l = FeatProxy.col2proxy(self.df, "low")
+            c = FeatProxy.col2proxy(self.df, "close")
+            vwap = FeatProxy.col2proxy(self.df, "vwap")
+            v = FeatProxy.col2proxy(self.df, "volume")
 
-        # Price change features
-        for field in ["open", "high", "low", "vwap"]:
-            self.add_feature(f"{field}_0", f"{field} / close")
+            # Candlestick pattern features
+            self.add_feature("kmid", (c - o) / o)
+            self.add_feature("klen", (h - l) / o)
+            self.add_feature("kmid_2", (c - o) / (h - l + 1e-12))
+            self.add_feature("kup", (h - ts_greater(o, c)) / o)
+            self.add_feature("kup_2", (h - ts_greater(o, c)) / (h - l + 1e-12))
+            self.add_feature("klow", (ts_less(o, c) - l) / o)
+            self.add_feature("klow_2", (ts_less(o, c) - l) / (h - l + 1e-12))
+            self.add_feature("ksft", (c * 2 - h - l) / o)
+            self.add_feature("ksft_2", (c * 2 - h - l) / (h - l + 1e-12))
 
-        # Time series features
-        windows: list[int] = [5, 10, 20, 30, 60]
+            # Price change features
+            for field_name, dp_field in [("open", o), ("high", h), ("low", l), ("vwap", vwap)]:
+                self.add_feature(f"{field_name}_0", dp_field / c)
 
-        for w in windows:
-            self.add_feature(f"roc_{w}", f"ts_delay(close, {w}) / close")
+            # Time series features
+            windows: list[int] = [5, 10, 20, 30, 60]
 
-        for w in windows:
-            self.add_feature(f"ma_{w}", f"ts_mean(close, {w}) / close")
+            for w in windows:
+                self.add_feature(f"roc_{w}", ts_delay(c, w) / c)
 
-        for w in windows:
-            self.add_feature(f"std_{w}", f"ts_std(close, {w}) / close")
+            for w in windows:
+                self.add_feature(f"ma_{w}", ts_mean(c, w) / c)
 
-        for w in windows:
-            self.add_feature(f"beta_{w}", f"ts_slope(close, {w}) / close")
+            for w in windows:
+                self.add_feature(f"std_{w}", ts_std(c, w) / c)
 
-        for w in windows:
-            self.add_feature(f"rsqr_{w}", f"ts_rsquare(close, {w})")
+            for w in windows:
+                self.add_feature(f"beta_{w}", ts_slope(c, w) / c)
 
-        for w in windows:
-            self.add_feature(f"resi_{w}", f"ts_resi(close, {w}) / close")
+            for w in windows:
+                self.add_feature(f"rsqr_{w}", ts_rsquare(c, w))
 
-        for w in windows:
-            self.add_feature(f"max_{w}", f"ts_max(high, {w}) / close")
+            for w in windows:
+                self.add_feature(f"resi_{w}", ts_resi(c, w) / c)
 
-        for w in windows:
-            self.add_feature(f"min_{w}", f"ts_min(low, {w}) / close")
+            for w in windows:
+                self.add_feature(f"max_{w}", ts_max(h, w) / c)
 
-        for w in windows:
-            self.add_feature(f"qtlu_{w}", f"ts_quantile(close, {w}, 0.8) / close")
+            for w in windows:
+                self.add_feature(f"min_{w}", ts_min(l, w) / c)
 
-        for w in windows:
-            self.add_feature(f"qtld_{w}", f"ts_quantile(close, {w}, 0.2) / close")
+            for w in windows:
+                self.add_feature(f"qtlu_{w}", ts_quantile(c, w, 0.8) / c)
 
-        for w in windows:
-            self.add_feature(f"rank_{w}", f"ts_rank(close, {w})")
+            for w in windows:
+                self.add_feature(f"qtld_{w}", ts_quantile(c, w, 0.2) / c)
 
-        for w in windows:
-            self.add_feature(f"rsv_{w}", f"(close - ts_min(low, {w})) / (ts_max(high, {w}) - ts_min(low, {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(f"rank_{w}", ts_rank(c, w))
 
-        for w in windows:
-            self.add_feature(f"imax_{w}", f"ts_argmax(high, {w}) / {w}")
+            for w in windows:
+                self.add_feature(
+                    f"rsv_{w}",
+                    (c - ts_min(l, w)) / (ts_max(h, w) - ts_min(l, w) + 1e-12)
+                )
 
-        for w in windows:
-            self.add_feature(f"imin_{w}", f"ts_argmin(low, {w}) / {w}")
+            for w in windows:
+                self.add_feature(f"imax_{w}", ts_argmax(h, w) / w)
 
-        for w in windows:
-            self.add_feature(f"imxd_{w}", f"(ts_argmax(high, {w}) - ts_argmin(low, {w})) / {w}")
+            for w in windows:
+                self.add_feature(f"imin_{w}", ts_argmin(l, w) / w)
 
-        for w in windows:
-            self.add_feature(f"corr_{w}", f"ts_corr(close, ts_log(volume + 1), {w})")
+            for w in windows:
+                self.add_feature(f"imxd_{w}", (ts_argmax(h, w) - ts_argmin(l, w)) / w)
 
-        for w in windows:
-            self.add_feature(f"cord_{w}", f"ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), {w})")
+            for w in windows:
+                self.add_feature(f"corr_{w}", ts_corr(c, ts_log(v + 1), w))
 
-        for w in windows:
-            self.add_feature(f"cntp_{w}", f"ts_mean(close > ts_delay(close, 1), {w})")
+            for w in windows:
+                self.add_feature(
+                    f"cord_{w}",
+                    ts_corr(c / ts_delay(c, 1), ts_log(v / ts_delay(v, 1) + 1), w)
+                )
 
-        for w in windows:
-            self.add_feature(f"cntn_{w}", f"ts_mean(close < ts_delay(close, 1), {w})")
+            for w in windows:
+                self.add_feature(f"cntp_{w}", ts_mean(c > ts_delay(c, 1), w))
 
-        for w in windows:
-            self.add_feature(f"cntd_{w}", f"ts_mean(close > ts_delay(close, 1), {w}) - ts_mean(close < ts_delay(close, 1), {w})")
+            for w in windows:
+                self.add_feature(f"cntn_{w}", ts_mean(c < ts_delay(c, 1), w))
 
-        for w in windows:
-            self.add_feature(f"sump_{w}", f"ts_sum(ts_greater(close - ts_delay(close, 1), 0), {w}) / (ts_sum(ts_abs(close - ts_delay(close, 1)), {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(f"cntd_{w}", ts_mean(c > ts_delay(c, 1), w) - ts_mean(c < ts_delay(c, 1), w))
 
-        for w in windows:
-            self.add_feature(f"sumn_{w}", f"ts_sum(ts_greater(ts_delay(close, 1) - close, 0), {w}) / (ts_sum(ts_abs(close - ts_delay(close, 1)), {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(
+                    f"sump_{w}",
+                    ts_sum(ts_greater(c - ts_delay(c, 1), 0), w) / (ts_sum(ts_abs(c - ts_delay(c, 1)), w) + 1e-12)
+                )
 
-        for w in windows:
-            self.add_feature(f"sumd_{w}", f"(ts_sum(ts_greater(close - ts_delay(close, 1), 0), {w}) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), {w})) / (ts_sum(ts_abs(close - ts_delay(close, 1)), {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(
+                    f"sumn_{w}",
+                    ts_sum(ts_greater(ts_delay(c, 1) - c, 0), w) / (ts_sum(ts_abs(c - ts_delay(c, 1)), w) + 1e-12)
+                )
 
-        for w in windows:
-            self.add_feature(f"vma_{w}", f"ts_mean(volume, {w}) / (volume + 1e-12)")
+            for w in windows:
+                self.add_feature(
+                    f"sumd_{w}",
+                    (ts_sum(ts_greater(c - ts_delay(c, 1), 0), w) - ts_sum(ts_greater(ts_delay(c, 1) - c, 0), w)) / (ts_sum(ts_abs(c - ts_delay(c, 1)), w) + 1e-12)
+                )
 
-        for w in windows:
-            self.add_feature(f"vstd_{w}", f"ts_std(volume, {w}) / (volume + 1e-12)")
+            for w in windows:
+                self.add_feature(f"vma_{w}", ts_mean(v, w) / (v + 1e-12))
 
-        for w in windows:
-            self.add_feature(f"wvma_{w}", f"ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, {w}) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(f"vstd_{w}", ts_std(v, w) / (v + 1e-12))
 
-        for w in windows:
-            self.add_feature(f"vsump_{w}", f"ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), {w}) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(
+                    f"wvma_{w}",
+                    ts_std(ts_abs(c / ts_delay(c, 1) - 1) * v, w) / (ts_mean(ts_abs(c / ts_delay(c, 1) - 1) * v, w) + 1e-12)
+                )
 
-        for w in windows:
-            self.add_feature(f"vsumn_{w}", f"ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), {w}) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(
+                    f"vsump_{w}",
+                    ts_sum(ts_greater(v - ts_delay(v, 1), 0), w) / (ts_sum(ts_abs(v - ts_delay(v, 1)), w) + 1e-12)
+                )
 
-        for w in windows:
-            self.add_feature(f"vsumd_{w}", f"(ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), {w}) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), {w})) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), {w}) + 1e-12)")
+            for w in windows:
+                self.add_feature(
+                    f"vsumn_{w}",
+                    ts_sum(ts_greater(ts_delay(v, 1) - v, 0), w) / (ts_sum(ts_abs(v - ts_delay(v, 1)), w) + 1e-12)
+                )
 
-        # Set label
-        self.set_label("ts_delay(close, -3) / ts_delay(close, -1) - 1")
+            for w in windows:
+                self.add_feature(
+                    f"vsumd_{w}",
+                    (ts_sum(ts_greater(v - ts_delay(v, 1), 0), w) - ts_sum(ts_greater(ts_delay(v, 1) - v, 0), w)) / (ts_sum(ts_abs(v - ts_delay(v, 1)), w) + 1e-12)
+                )
+
+            # Set label
+            label = ts_delay(c, -3) / ts_delay(c, -1) - 1
+            self.set_label(label)

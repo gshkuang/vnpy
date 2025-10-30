@@ -1,37 +1,37 @@
 """
-Cross Section Operators
+Cross Section Operators (LazyFrame-based)
 """
 
 import polars as pl
 
-from .utility import DataProxy
+from .utility import FeatProxy
 
 
-def cs_rank(feature: DataProxy) -> DataProxy:
+def cs_rank(feature: FeatProxy) -> FeatProxy:
     """Perform cross-sectional ranking"""
-    df: pl.DataFrame = feature.df.select(
+    lf: pl.LazyFrame = feature.df.select(
         pl.col("datetime"),
         pl.col("vt_symbol"),
         pl.col("data").rank().over("datetime")
     )
-    return DataProxy(df)
+    return FeatProxy(lf)
 
 
-def cs_mean(feature: DataProxy) -> DataProxy:
+def cs_mean(feature: FeatProxy) -> FeatProxy:
     """Calculate cross-sectional mean"""
-    df: pl.DataFrame = feature.df.select(
+    lf: pl.LazyFrame = feature.df.select(
         pl.col("datetime"),
         pl.col("vt_symbol"),
         pl.col("data").mean().over("datetime")
     )
-    return DataProxy(df)
+    return FeatProxy(lf)
 
 
-def cs_std(feature: DataProxy) -> DataProxy:
+def cs_std(feature: FeatProxy) -> FeatProxy:
     """Calculate cross-sectional standard deviation"""
-    df: pl.DataFrame = feature.df.select(
+    lf: pl.LazyFrame = feature.df.select(
         pl.col("datetime"),
         pl.col("vt_symbol"),
         pl.col("data").std().over("datetime")
     )
-    return DataProxy(df)
+    return FeatProxy(lf)

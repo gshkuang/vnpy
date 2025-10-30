@@ -13,7 +13,7 @@ from alphalens.tears import create_full_tear_sheet  # type: ignore
 import pickle
 from pathlib import Path
 from ..logger import logger
-from .utility import to_datetime, Segment, calculate_by_expression, calculate_by_polars
+from .utility import to_datetime, Segment, FeatProxy
 
 
 class AlphaDataset:
@@ -43,9 +43,10 @@ class AlphaDataset:
             Segment.TEST: test_period,
         }
 
-        self.feature_expressions: dict[str, str | pl.expr.expr.Expr] = {}
+        # Feature storage using DataProxy (LazyFrame-based)
+        self.features: dict[str, FeatProxy] = {}
         self.feature_results: dict[str, pl.DataFrame] = {}
-        self.label_expression: str = ""
+        self.label_feature: FeatProxy | None = None
 
         self.process_type: str = process_type
         self.infer_processors: list = []
@@ -54,25 +55,25 @@ class AlphaDataset:
     def add_feature(
         self,
         name: str,
-        expression: str | pl.expr.expr.Expr | None = None,
+        feature: FeatProxy | None = None,
         result: pl.DataFrame | None = None,
     ) -> None:
         """
-        Add a feature expression
+        Add a feature. Prefer DataProxy; optionally accept a ready DataFrame result.
         """
-        if expression is not None and result is not None:
-            raise ValueError("Only one of 'expression' or 'result' can be provided")
+        if feature is not None and result is not None:
+            raise ValueError("Only one of 'feature' or 'result' can be provided")
 
-        if expression is not None:
-            self.feature_expressions[name] = expression
+        if feature is not None:
+            self.features[name] = feature
         elif result is not None:
             self.feature_results[name] = result
 
-    def set_label(self, expression: str) -> None:
+    def set_label(self, feature: FeatProxy) -> None:
         """
-        Set the label expression
+        Set the label feature
         """
-        self.label_expression = expression
+        self.label_feature = feature
 
     def add_processor(
         self, task: str, processor: Callable[[pl.DataFrame], None]
@@ -91,42 +92,38 @@ class AlphaDataset:
         """
         Generate required data
         """
-        # List for feature data results
-        results: list = []
+        # 收集各特征计算后的 DataFrame（包含键列与命名列）
+        feat_dfs: list[pl.DataFrame] = []
 
-        # Iterate through expressions for calculation
-        expressions: list[tuple[str, str | pl.expr.expr.Expr]] = list(
-            self.feature_expressions.items()
-        )
+        # Calculate DataProxy features
+        logger.info("开始计算 DataProxy 因子特征")
+        t_feat_start = time.time()
 
-        if self.label_expression:
-            expressions.append(("label", self.label_expression))
+        tasks: list[tuple[str, FeatProxy]] = list(self.features.items())
+        if self.label_feature is not None:
+            tasks.append(("label", self.label_feature))
 
-        # Create process pool
-        logger.info("开始计算表达式因子特征")
-        t_expr_start = time.time()
+        if tasks:
+            # Simplify: compute features sequentially to avoid pickling LazyFrame
+            args: list[tuple[str, FeatProxy]] = [(name, feature) for name, feature in tasks]
+            context: BaseContext = get_context("spawn")
 
-        args: list[tuple] = [
-            (self.df, name, expression) for name, expression in expressions
-        ]
+            with context.Pool(processes=max_workers) as pool:
+                            # Calculate all expressions in parallel
+                it = pool.imap(calculate_feature, args)
+                for result in tqdm(it, total=len(args)):
+                    feat_dfs.append(result)
 
-        context: BaseContext = get_context("spawn")
+        t_feat_end = time.time()
+        logger.info(f"DataProxy 因子计算完成 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
 
-        with context.Pool(processes=max_workers) as pool:
-            # Calculate all expressions in parallel
-            it = pool.imap(calculate_feature, args)
-
-            # Collect results
-            for result in tqdm(it, total=len(args)):
-                results.append(result)
-
-        t_expr_end = time.time()
-        logger.info(f"表达式计算完成 | 数量: {len(args)} | 耗时: {t_expr_end - t_expr_start:.3f}s")
-
-        t_withcols_start = time.time()
-        self.result_df = self.df.with_columns(results)
-        t_withcols_end = time.time()
-        logger.info(f"合并表达式结果到 DataFrame | 耗时: {t_withcols_end - t_withcols_start:.3f}s")
+        # 按键 join 合并所有特征与标签
+        t_join_start = time.time()
+        self.result_df = self.df
+        for i, fdf in enumerate(feat_dfs, start=1):
+            self.result_df = self.result_df.join(fdf, on=["datetime", "vt_symbol"], how="inner")
+        t_join_end = time.time()
+        logger.info(f"按键合并因子到 DataFrame | 合并数量: {len(feat_dfs)} | 耗时: {t_join_end - t_join_start:.3f}s")
 
         # Merge result data factor features
         logger.info("开始合并结果数据因子特征")
@@ -394,21 +391,19 @@ def query_by_time(
 
 
 def calculate_feature(
-    args: tuple[pl.DataFrame, str, str | pl.expr.expr.Expr],
-) -> pl.Series:
+    args: tuple[str, FeatProxy],
+) -> pl.DataFrame:
     """
-    Calculate feature by expression
+    计算单个特征：收集 LazyFrame 为 DataFrame，重命名为特征名，并保留键列。
+    返回形如 [datetime, vt_symbol, <name>] 的 DataFrame。
     """
     start = time.time()
 
-    df, name, expression = args
-
-    if isinstance(expression, pl.expr.expr.Expr):
-        result = calculate_by_polars(df, expression)["data"].alias(name)
-    else:
-        result = calculate_by_expression(df, expression)["data"].alias(name)
+    name, feature = args
+    df: pl.DataFrame = feature.df.collect(engine="gpu")
+    df = df.rename({"data": name})
 
     end = time.time()
-    print(f"Feature calculation {name} took: {end - start} seconds | {expression}")
+    print(f"Feature calculation {name} took: {end - start} seconds")
 
-    return result
+    return df.select(["datetime", "vt_symbol", name])

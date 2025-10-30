@@ -5,160 +5,121 @@ from typing import Union
 import polars as pl
 
 
-class DataProxy:
-    """Feature data proxy"""
+class FeatProxy:
+    """Feature data proxy backed by LazyFrame"""
 
-    def __init__(self, df: pl.DataFrame) -> None:
-        """Constructor"""
-        self.name: str = df.columns[-1]
-        self.df: pl.DataFrame = df.rename({self.name: "data"})
+    def __init__(self, df: pl.DataFrame | pl.LazyFrame) -> None:
+        """Constructor accepting eager DataFrame or LazyFrame"""
+        lf: pl.LazyFrame = df.lazy() if isinstance(df, pl.DataFrame) else df
+        # ensure last column is named as data
+        last_name: str = lf.columns[-1]
+        self.df: pl.LazyFrame = lf.rename({last_name: "data"})
 
-        # Note that for numerical expressions, variables should be placed before numbers. e.g. a * 2
+        # Note: numeric expressions should place variables before numbers, e.g. a * 2
 
-    def result(self, s: pl.Series) -> "DataProxy":
-        """Convert series data to feature object"""
-        result: pl.DataFrame = self.df[["datetime", "vt_symbol"]]
-        result = result.with_columns(other=s)
+    @classmethod
+    def col2proxy(cls, df: pl.DataFrame | pl.LazyFrame, column: str) -> "FeatProxy":
+        lf: pl.LazyFrame = df.lazy() if isinstance(df, pl.DataFrame) else df
+        return cls(lf.select(["datetime", "vt_symbol", pl.col(column).alias("data")]))
 
-        return DataProxy(result)
+    def expr2proxy(self, expr: pl.Expr) -> "FeatProxy":
+        """Convert expression to feature LazyFrame"""
+        lf: pl.LazyFrame = self.df.select([
+            pl.col("datetime"),
+            pl.col("vt_symbol"),
+            expr.alias("data")
+        ])
+        return FeatProxy(lf)
 
-    def __add__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __add__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Addition operation"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] + other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") + pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] + other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") + pl.lit(other))
 
-    def __sub__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __sub__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Subtraction operation"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] - other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") - pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] - other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") - pl.lit(other))
 
-    def __mul__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __mul__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Multiplication operation"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] * other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") * pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] * other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") * pl.lit(other))
 
-    def __rmul__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __rmul__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Right multiplication operation"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] * other.df["data"]
-        else:
-            s = self.df["data"] * other
-        return self.result(s)
+        return self.__mul__(other)
 
-    def __truediv__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __truediv__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Division operation"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] / other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") / pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] / other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") / pl.lit(other))
 
-    def __abs__(self) -> "DataProxy":
+    def __abs__(self) -> "FeatProxy":
         """Get absolute value"""
-        s: pl.Series = self.df["data"].abs()
-        return self.result(s)
+        return self.expr2proxy(pl.col("data").abs())
 
-    def __gt__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __gt__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Greater than comparison"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] > other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") > pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] > other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") > pl.lit(other))
 
-    def __ge__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __ge__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Greater than or equal comparison"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] >= other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") >= pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] >= other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") >= pl.lit(other))
 
-    def __lt__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __lt__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Less than comparison"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] < other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") < pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] < other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") < pl.lit(other))
 
-    def __le__(self, other: Union["DataProxy", int, float]) -> "DataProxy":
+    def __le__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Less than or equal comparison"""
-        if isinstance(other, DataProxy):
-            s: pl.Series = self.df["data"] <= other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") <= pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] <= other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") <= pl.lit(other))
 
-    def __eq__(self, other: Union["DataProxy", int, float]) -> "DataProxy":    # type: ignore
+    def __eq__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":    # type: ignore
         """Equal comparison"""
-        if isinstance(other, DataProxy):
-            s = self.df["data"] == other.df["data"]
+        if isinstance(other, FeatProxy):
+            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            expr = pl.col("data") == pl.col("data_right")
+            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
         else:
-            s = self.df["data"] == other
-        return self.result(s)
+            return self.expr2proxy(pl.col("data") == pl.lit(other))
 
-
-def calculate_by_expression(df: pl.DataFrame, expression: str) -> pl.DataFrame:
-    """Execute calculation based on expression"""
-    # Import operators locally to avoid polluting global namespace
-    from .ts_function import (              # noqa
-        ts_delay,
-        ts_min, ts_max,
-        ts_argmax, ts_argmin,
-        ts_rank, ts_sum,
-        ts_mean, ts_std,
-        ts_slope, ts_quantile,
-        ts_rsquare, ts_resi,
-        ts_corr,
-        ts_less, ts_greater,
-        ts_log, ts_abs
-    )
-    from .cs_function import (              # noqa
-        cs_rank,
-        cs_mean,
-        cs_std
-    )
-    from .ta_function import (              # noqa
-        ta_rsi,
-        ta_atr
-    )
-
-    # Extract feature objects to local space
-    d: dict = locals()
-
-    for column in df.columns:
-        # Filter index columns
-        if column in {"datetime", "vt_symbol"}:
-            continue
-
-        # Cache feature df
-        column_df = df[["datetime", "vt_symbol", column]]
-        d[column] = DataProxy(column_df)
-
-    # Use eval to execute calculation
-    other: DataProxy = eval(expression, {}, d)
-
-    # Return result DataFrame
-    return other.df
-
-
-def calculate_by_polars(df: pl.DataFrame, expression: pl.expr.expr.Expr) -> pl.DataFrame:
-    """Execute calculation based on Polars expression"""
-    return df.select([
-        "datetime",
-        "vt_symbol",
-        expression.alias("data")
-    ])
 
 
 def to_datetime(arg: datetime | str) -> datetime:
