@@ -32,7 +32,7 @@ class AlphaDataset:
 
         # DataFrames for processed data
         self.result_df: pl.DataFrame
-        self.raw_df: pl.DataFrame
+        # self.raw_df: pl.DataFrame
         self.infer_df: pl.DataFrame
         self.learn_df: pl.DataFrame
 
@@ -168,24 +168,19 @@ class AlphaDataset:
             ranges_df = pl.DataFrame(ranges_rows).sort(["vt_symbol", "range_start"])
 
             # join_asof 需要按时间列排序
-            raw_df = raw_df.sort(["vt_symbol", "datetime"])
+            # raw_df = raw_df.sort(["vt_symbol", "datetime"])
             # 对齐每条数据到最近的区间起点（同 vt_symbol）
-            joined = raw_df.join_asof(
-                ranges_df,
+            raw_df = raw_df.lazy().join_asof(
+                ranges_df.lazy(),
                 left_on="datetime",
                 right_on="range_start",
                 by="vt_symbol",
                 strategy="backward",
-            )
-
-            # 仅保留在区间内的行：range_start 非空 且 datetime <= range_end
-            filtered_df = joined.filter(
+            ).filter(
                 pl.col("range_start").is_not_null()
                 & (pl.col("datetime") <= pl.col("range_end"))
-            ).select(raw_df.columns)
+            ).select(raw_df.columns).collect()
 
-
-            raw_df = filtered_df
             t_filter_end = time.time()
             logger.info(f"筛选成分股数据完成 | 合计合并条目: {len(filters)} | 耗时: {t_filter_end - t_filter_start:.3f}s")
 
@@ -194,12 +189,15 @@ class AlphaDataset:
         select_columns: list[str] = ["datetime", "vt_symbol"] + raw_df.columns[
             self.df.width :
         ]
-        self.raw_df = raw_df.select(select_columns).sort(["datetime", "vt_symbol"])
+        raw_df = raw_df.select(select_columns).sort(["datetime", "vt_symbol"])
         t_select_sort_end = time.time()
         logger.info(f"选择特征列并排序完成 | 列数: {len(select_columns)} | 耗时: {t_select_sort_end - t_select_sort_start:.3f}s")
 
         # Generate inference data
-        self.infer_df = self.raw_df
+        self.infer_df = raw_df
+        print(self.infer_df.head())
+        print(self.infer_df.shape)
+        print(self.infer_processors)
         for i, processor in enumerate(self.infer_processors, start=1):
             t_proc_start = time.time()
             self.infer_df = processor(df=self.infer_df)
@@ -212,7 +210,7 @@ class AlphaDataset:
         if self.process_type == "append":
             self.learn_df = self.infer_df
         else:
-            self.learn_df = self.raw_df
+            self.learn_df = raw_df
         t_learn_assign_end = time.time()
         logger.info(f"学习数据赋值完成（process_type={self.process_type}）| 耗时: {t_learn_assign_end - t_learn_assign_start:.3f}s")
 
@@ -370,7 +368,7 @@ class AlphaDataset:
 
         dataset = cls(df, train, valid, test, process_type=process_type)
 
-        for attr in ["result_df", "raw_df", "infer_df", "learn_df"]:
+        for attr in ["result_df","infer_df", "learn_df"]:
             file = path.joinpath(f"{attr}.parquet")
             if file.exists():
                 setattr(dataset, attr, pl.read_parquet(file))

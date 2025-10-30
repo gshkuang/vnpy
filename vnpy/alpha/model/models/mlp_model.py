@@ -166,22 +166,19 @@ class MlpModel(AlphaModel):
         for segment in [Segment.TRAIN, Segment.VALID]:
             # Get learning data and sort by time and trading code
             df: pl.DataFrame = dataset.fetch_learn(segment)
-            df = df.sort(["datetime", "vt_symbol"])
+            #df = df.sort(["datetime", "vt_symbol"])
 
             # Extract features and labels
-            features = df.select(df.columns[2: -1]).to_numpy()
-            labels = np.array(df["label"])
+            # features = df.select(df.columns[2: -1]).to_numpy()
+            # labels = np.array(df["label"])
 
             # Store feature and label data
-            train_valid_data["x"][segment] = torch.from_numpy(features).float().to(self.device)
-            train_valid_data["y"][segment] = torch.from_numpy(labels).float().to(self.device)
+            train_valid_data["x"][segment] = df.select(df.columns[2: -1]).to_torch(device=self.device,dtype=torch.float32)
+            train_valid_data["y"][segment] = df["label"].to_torch(device=self.device,dtype=torch.float32)
 
             # Initialize evaluation results list
             evaluation_results[segment] = []
-
-        # Get feature names
-        df = dataset.fetch_learn(Segment.TRAIN)
-        self.feature_names = df.columns[2:-1]
+            self.feature_names = df.columns[2:-1]
 
         # Initialize training state
         early_stop_count: int = 0           # Number of steps without performance improvement
@@ -190,6 +187,7 @@ class MlpModel(AlphaModel):
         best_params = None                  # Best model parameters
 
         train_samples: int = train_valid_data["y"][Segment.TRAIN].shape[0]
+        logger.info("开始训练模型")
 
         # Iterate through training steps
         for step in range(1, self.n_epochs + 1):
@@ -201,6 +199,10 @@ class MlpModel(AlphaModel):
             # Train one batch
             batch_loss = self._train_step(train_valid_data, train_samples)
             train_loss += batch_loss
+
+            # Print training progress every 10 steps
+            if step % 10 == 0:
+                logger.info(f"Step {step}/{self.n_epochs}, Batch Loss: {batch_loss:.6f}")
 
             # Periodically evaluate the model
             if step % self.eval_steps == 0 or step == self.n_epochs:

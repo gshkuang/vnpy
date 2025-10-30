@@ -1,6 +1,4 @@
 from datetime import datetime
-
-import numpy as np
 import polars as pl
 
 from .utility import to_datetime
@@ -80,7 +78,7 @@ def process_robust_zscore_norm(
     fit_end_time: datetime | str | None = None,
     clip_outlier: bool = True
 ) -> pl.DataFrame:
-    """Robust Z-Score normalization"""
+    """Robust Z-Score normalization - Optimized Polars version"""
     _df: pl.DataFrame = df.fill_nan(None)
 
     if fit_start_time and fit_end_time:
@@ -89,22 +87,34 @@ def process_robust_zscore_norm(
         _df = _df.filter((pl.col("datetime") >= fit_start_time) & (pl.col("datetime") <= fit_end_time))
 
     cols = df.columns[2:-1]
-    X = _df.select(cols).to_numpy()
-
-    mean_train = np.nanmedian(X, axis=0)
-    std_train = np.nanmedian(np.abs(X - mean_train), axis=0)
-    std_train += 1e-12
-    std_train *= 1.4826
-
-    for name in cols:
-        normalized_col = (
-            (pl.col(name) - mean_train[cols.index(name)]) / std_train[cols.index(name)]
-        ).cast(pl.Float64)
-
+    
+    # Calculate median and MAD for each column using native Polars operations
+    # This avoids expensive numpy conversion
+    stats_exprs = []
+    for col in cols:
+        median_expr = pl.col(col).median().alias(f"{col}_median")
+        mad_expr = (pl.col(col) - pl.col(col).median()).abs().median().alias(f"{col}_mad")
+        stats_exprs.extend([median_expr, mad_expr])
+    
+    # Calculate all statistics in one pass
+    stats = _df.select(stats_exprs).row(0)
+    
+    # Create normalization expressions
+    norm_exprs = []
+    for i, col in enumerate(cols):
+        median_val = stats[i * 2]
+        mad_val = stats[i * 2 + 1]
+        std_val = mad_val * 1.4826 + 1e-12
+        
+        normalized_col = ((pl.col(col) - median_val) / std_val).cast(pl.Float64)
+        
         if clip_outlier:
             normalized_col = normalized_col.clip(-3, 3)
-
-        df = df.with_columns(normalized_col.alias(name))
+            
+        norm_exprs.append(normalized_col.alias(col))
+    
+    # Apply all normalizations in one operation
+    df = df.with_columns(norm_exprs)
 
     return df
 

@@ -70,7 +70,7 @@ class LgbModel(AlphaModel):
         for segment in [Segment.TRAIN, Segment.VALID]:
             # Get data for learning
             df: pl.DataFrame = dataset.fetch_learn(segment)
-            df = df.sort(["datetime", "vt_symbol"])
+            #df = df.sort(["datetime", "vt_symbol"])
 
             # Convert to numpy arrays
             data = df.select(df.columns[2: -1]).to_pandas()
