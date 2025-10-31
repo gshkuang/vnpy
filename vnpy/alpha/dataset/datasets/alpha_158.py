@@ -23,7 +23,8 @@ class Alpha158(AlphaDataset):
         df: pl.DataFrame,
         train_period: tuple[str, str],
         valid_period: tuple[str, str],
-        test_period: tuple[str, str]
+        test_period: tuple[str, str],
+        period: str = "m",
         ) -> None:
             """Constructor"""
             super().__init__(
@@ -33,7 +34,7 @@ class Alpha158(AlphaDataset):
                 test_period=test_period,
             )
 
-            # Build base DataProxy columns
+
             o = FeatProxy.col2proxy(self.df, "open")
             h = FeatProxy.col2proxy(self.df, "high")
             l = FeatProxy.col2proxy(self.df, "low")
@@ -90,7 +91,7 @@ class Alpha158(AlphaDataset):
                 self.add_feature(f"qtld_{w}", ts_quantile(c, w, 0.2) / c)
 
             for w in windows:
-                self.add_feature(f"rank_{w}", ts_rank(c, w))
+                self.add_feature(f"rank_{w}", ts_rank(c, w, period))
 
             for w in windows:
                 self.add_feature(

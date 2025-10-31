@@ -47,8 +47,8 @@ class LassoModel(AlphaModel):
             The dataset used for training
         """
         # Get training data
-        df_train: pl.DataFrame = dataset.fetch_learn(Segment.TRAIN)
-        df_valid: pl.DataFrame = dataset.fetch_learn(Segment.VALID)
+        df_train: pl.DataFrame = dataset.fetch_feat(Segment.TRAIN)
+        df_valid: pl.DataFrame = dataset.fetch_feat(Segment.VALID)
 
         # Merge data, remove duplicates and sort
         df_train = pl.concat([df_train, df_valid])
@@ -98,7 +98,7 @@ class LassoModel(AlphaModel):
             raise ValueError("model is not fitted yet!")
 
         # Get data for prediction
-        df: pl.DataFrame = dataset.fetch_infer(segment)
+        df: pl.DataFrame = dataset.fetch_feat(segment)
         df = df.sort(["datetime", "vt_symbol"])
 
         # Convert to numpy array

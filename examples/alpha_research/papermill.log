@@ -1,193 +1,0 @@
-nohup: 忽略输入
-['XPLUSDT.BINANCE', 'FETUSDT.BINANCE', 'BNBUSDT.BINANCE', 'BCHUSDT.BINANCE', 'DEGOUSDT.BINANCE', 'BIOUSDT.BINANCE', 'PENGUUSDT.BINANCE', 'WALUSDT.BINANCE', 'SUIUSDT.BINANCE', 'TRXUSDT.BINANCE']
-[32m2025-10-30 01:48:46[0m [31m[1mFile lab/crypto_1m/minute/XPLUSDT.BINANCE.parquet does not exist[0m
-[32m2025-10-30 01:48:47[0m [31m[1mFile lab/crypto_1m/minute/WALUSDT.BINANCE.parquet does not exist[0m
-shape: (5, 10)
-┌─────────────┬───────────┬───────────┬──────────┬───┬──────────┬─────────────┬──────┬─────────────┐
-│ datetime    ┆ open      ┆ high      ┆ low      ┆ … ┆ turnover ┆ open_intere ┆ vwap ┆ vt_symbol   │
-│ ---         ┆ ---       ┆ ---       ┆ ---      ┆   ┆ ---      ┆ st          ┆ ---  ┆ ---         │
-│ datetime[μs ┆ f32       ┆ f32       ┆ f32      ┆   ┆ f32      ┆ ---         ┆ f32  ┆ str         │
-│ ]           ┆           ┆           ┆          ┆   ┆          ┆ f32         ┆      ┆             │
-╞═════════════╪═══════════╪═══════════╪══════════╪═══╪══════════╪═════════════╪══════╪═════════════╡
-│ 2023-08-05  ┆ 5.19407   ┆ 5.196766  ┆ 5.191375 ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ FETUSDT.BIN │
-│ 07:32:00    ┆           ┆           ┆          ┆   ┆          ┆             ┆      ┆ ANCE        │
-│ 2025-05-01  ┆ 0.089091  ┆ 0.089205  ┆ 0.088977 ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ BIOUSDT.BIN │
-│ 12:14:00    ┆           ┆           ┆          ┆   ┆          ┆             ┆      ┆ ANCE        │
-│ 2022-05-12  ┆ 0.057211  ┆ 0.057211  ┆ 0.057211 ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ DEGOUSDT.BI │
-│ 05:38:00    ┆           ┆           ┆          ┆   ┆          ┆             ┆      ┆ NANCE       │
-│ 2024-05-29  ┆ 61.159035 ┆ 61.185989 ┆ 61.05122 ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ FETUSDT.BIN │
-│ 07:47:00    ┆           ┆           ┆          ┆   ┆          ┆             ┆      ┆ ANCE        │
-│ 2023-05-31  ┆ 7.105122  ┆ 7.107818  ┆ 7.09973  ┆ … ┆ 0.0      ┆ 0.0         ┆ 0.0  ┆ FETUSDT.BIN │
-│ 21:15:00    ┆           ┆           ┆          ┆   ┆          ┆             ┆      ┆ ANCE        │
-└─────────────┴───────────┴───────────┴──────────┴───┴──────────┴─────────────┴──────┴─────────────┘
-fit_start_time: 2020-01-01 00:00:00
-fit_end_time: 2023-12-31 00:00:00
-[32m2025-10-30 01:48:48[0m [1m开始计算表达式因子特征[0m
-  0%|          | 0/159 [00:00<?, ?it/s]  1%|          | 1/159 [00:01<03:52,  1.47s/it]  1%|▏         | 2/159 [00:02<03:30,  1.34s/it]  2%|▏         | 3/159 [00:04<03:25,  1.31s/it]  3%|▎         | 4/159 [00:06<04:15,  1.65s/it]  3%|▎         | 5/159 [00:08<04:40,  1.82s/it]  4%|▍         | 6/159 [00:10<04:53,  1.92s/it]  4%|▍         | 7/159 [00:12<05:01,  1.98s/it]  5%|▌         | 8/159 [00:13<04:25,  1.76s/it]  6%|▌         | 9/159 [00:15<04:01,  1.61s/it]  6%|▋         | 10/159 [00:16<03:42,  1.49s/it]  7%|▋         | 11/159 [00:17<03:30,  1.42s/it]  8%|▊         | 12/159 [00:18<03:20,  1.36s/it]  8%|▊         | 13/159 [00:20<03:13,  1.32s/it]  9%|▉         | 14/159 [00:21<03:15,  1.35s/it]  9%|▉         | 15/159 [00:22<03:19,  1.39s/it] 10%|█         | 16/159 [00:24<03:19,  1.40s/it] 11%|█         | 17/159 [00:25<03:20,  1.41s/it] 11%|█▏        | 18/159 [00:27<03:18,  1.41s/it] 12%|█▏        | 19/159 [00:28<03:20,  1.43s/it] 13%|█▎        | 20/159 [00:30<03:20,  1.44s/it] 13%|█▎        | 21/159 [00:31<03:18,  1.44s/it] 14%|█▍        | 22/159 [00:33<03:17,  1.45s/it] 14%|█▍        | 23/159 [00:34<03:16,  1.45s/it] 15%|█▌        | 24/159 [00:35<03:16,  1.45s/it] 16%|█▌        | 25/159 [00:37<03:14,  1.45s/it] 16%|█▋        | 26/159 [00:38<03:14,  1.46s/it] 17%|█▋        | 27/159 [00:40<03:13,  1.46s/it] 18%|█▊        | 28/159 [00:41<03:12,  1.47s/it] 18%|█▊        | 29/159 [02:19<1:05:48, 30.37s/it] 19%|█▉        | 30/159 [04:03<1:52:57, 52.54s/it] 19%|█▉        | 31/159 [06:00<2:33:12, 71.81s/it] 20%|██        | 32/159 [08:08<3:07:38, 88.65s/it] 21%|██        | 33/159 [10:51<3:52:56, 110.93s/it] 21%|██▏       | 34/159 [12:31<3:44:04, 107.56s/it] 22%|██▏       | 35/159 [14:18<3:41:53, 107.37s/it] 23%|██▎       | 36/159 [16:17<3:47:19, 110.89s/it] 23%|██▎       | 37/159 [18:26<3:56:42, 116.41s/it] 24%|██▍       | 38/159 [21:08<4:22:15, 130.05s/it] 25%|██▍       | 39/159 [22:45<4:00:24, 120.20s/it] 25%|██▌       | 40/159 [24:30<3:49:18, 115.62s/it] 26%|██▌       | 41/159 [26:29<3:49:11, 116.54s/it] 26%|██▋       | 42/159 [28:38<3:54:55, 120.48s/it] 27%|██▋       | 43/159 [31:23<4:18:22, 133.64s/it] 28%|██▊       | 44/159 [31:24<3:00:09, 93.99s/it]  28%|██▊       | 45/159 [31:26<2:05:49, 66.22s/it] 29%|██▉       | 46/159 [31:27<1:28:07, 46.79s/it] 30%|██▉       | 47/159 [31:29<1:01:57, 33.19s/it] 30%|███       | 48/159 [31:30<43:47, 23.67s/it]   31%|███       | 49/159 [31:31<31:10, 17.01s/it] 31%|███▏      | 50/159 [31:33<22:27, 12.37s/it] 32%|███▏      | 51/159 [31:35<16:22,  9.10s/it] 33%|███▎      | 52/159 [31:36<12:08,  6.81s/it] 33%|███▎      | 53/159 [31:37<09:12,  5.21s/it] 34%|███▍      | 54/159 [33:15<57:50, 33.05s/it] 35%|███▍      | 55/159 [34:54<1:31:25, 52.74s/it] 35%|███▌      | 56/159 [36:34<1:55:01, 67.00s/it] 36%|███▌      | 57/159 [38:14<2:10:24, 76.71s/it] 36%|███▋      | 58/159 [39:54<2:21:08, 83.85s/it] 37%|███▋      | 59/159 [41:31<2:25:59, 87.60s/it] 38%|███▊      | 60/159 [43:09<2:29:47, 90.78s/it] 38%|███▊      | 61/159 [44:51<2:33:44, 94.13s/it] 39%|███▉      | 62/159 [46:33<2:36:15, 96.66s/it] 40%|███▉      | 63/159 [48:21<2:39:58, 99.98s/it] 40%|████      | 64/159 [51:03<3:07:44, 118.58s/it] 41%|████      | 65/159 [53:45<3:26:15, 131.65s/it] 42%|████▏     | 66/159 [56:31<3:39:55, 141.88s/it] 42%|████▏     | 67/159 [59:10<3:45:26, 147.03s/it] 43%|████▎     | 68/159 [1:01:55<3:51:14, 152.46s/it] 43%|████▎     | 69/159 [1:01:57<2:40:58, 107.32s/it] 44%|████▍     | 70/159 [1:01:59<1:52:17, 75.70s/it]  45%|████▍     | 71/159 [1:02:01<1:18:33, 53.56s/it] 45%|████▌     | 72/159 [1:02:03<55:11, 38.07s/it]   46%|████▌     | 73/159 [1:02:05<39:02, 27.24s/it] 47%|████▋     | 74/159 [1:03:39<1:07:07, 47.38s/it] 47%|████▋     | 75/159 [1:05:17<1:27:41, 62.64s/it] 48%|████▊     | 76/159 [1:06:54<1:40:53, 72.94s/it] 48%|████▊     | 77/159 [1:08:30<1:48:57, 79.72s/it] 49%|████▉     | 78/159 [1:10:07<1:54:29, 84.81s/it] 50%|████▉     | 79/159 [1:11:43<1:57:35, 88.20s/it] 50%|█████     | 80/159 [1:13:21<2:00:02, 91.18s/it] 51%|█████     | 81/159 [1:14:57<2:00:26, 92.64s/it] 52%|█████▏    | 82/159 [1:16:33<2:00:11, 93.65s/it] 52%|█████▏    | 83/159 [1:18:09<1:59:26, 94.30s/it] 53%|█████▎    | 84/159 [1:21:15<2:32:19, 121.86s/it] 53%|█████▎    | 85/159 [1:24:30<2:57:20, 143.79s/it] 54%|█████▍    | 86/159 [1:27:40<3:11:59, 157.81s/it] 55%|█████▍    | 87/159 [1:30:51<3:21:09, 167.63s/it]Feature calculation kmid took: 0.041062355041503906 seconds | (close - open) / open
-Feature calculation klen took: 0.019832611083984375 seconds | (high - low) / open
-Feature calculation kmid_2 took: 0.047774314880371094 seconds | (close - open) / (high - low + 1e-12)
-Feature calculation kup took: 0.9409770965576172 seconds | (high - ts_greater(open, close)) / open
-Feature calculation kup_2 took: 0.8903632164001465 seconds | (high - ts_greater(open, close)) / (high - low + 1e-12)
-Feature calculation klow took: 0.8622772693634033 seconds | (ts_less(open, close) - low) / open
-Feature calculation klow_2 took: 0.8761897087097168 seconds | ((ts_less(open, close) - low) / (high - low + 1e-12))
-Feature calculation ksft took: 0.03227949142456055 seconds | (close * 2 - high - low) / open
-Feature calculation ksft_2 took: 0.047571659088134766 seconds | (close * 2 - high - low) / (high - low + 1e-12)
-Feature calculation open_0 took: 0.010480642318725586 seconds | open / close
-Feature calculation high_0 took: 0.010247230529785156 seconds | high / close
-Feature calculation low_0 took: 0.010161876678466797 seconds | low / close
-Feature calculation vwap_0 took: 0.010090827941894531 seconds | vwap / close
-Feature calculation roc_5 took: 0.18714308738708496 seconds | ts_delay(close, 5) / close
-Feature calculation roc_10 took: 0.2228527069091797 seconds | ts_delay(close, 10) / close
-Feature calculation roc_20 took: 0.19712018966674805 seconds | ts_delay(close, 20) / close
-Feature calculation roc_30 took: 0.22329497337341309 seconds | ts_delay(close, 30) / close
-Feature calculation roc_60 took: 0.18519306182861328 seconds | ts_delay(close, 60) / close
-Feature calculation ma_5 took: 0.24634981155395508 seconds | ts_mean(close, 5) / close
-Feature calculation ma_10 took: 0.2360522747039795 seconds | ts_mean(close, 10) / close
-Feature calculation ma_20 took: 0.20768213272094727 seconds | ts_mean(close, 20) / close
-Feature calculation ma_30 took: 0.22158145904541016 seconds | ts_mean(close, 30) / close
-Feature calculation ma_60 took: 0.22180509567260742 seconds | ts_mean(close, 60) / close
-Feature calculation std_5 took: 0.2438957691192627 seconds | ts_std(close, 5) / close
-Feature calculation std_10 took: 0.23490262031555176 seconds | ts_std(close, 10) / close
-Feature calculation std_20 took: 0.2320866584777832 seconds | ts_std(close, 20) / close
-Feature calculation std_30 took: 0.23961782455444336 seconds | ts_std(close, 30) / close
-Feature calculation std_60 took: 0.24853849411010742 seconds | ts_std(close, 60) / close
-Feature calculation beta_5 took: 96.59595108032227 seconds | ts_slope(close, 5) / close
-Feature calculation beta_10 took: 103.03845810890198 seconds | ts_slope(close, 10) / close
-Feature calculation beta_20 took: 115.56455707550049 seconds | ts_slope(close, 20) / close
-Feature calculation beta_30 took: 126.70644307136536 seconds | ts_slope(close, 30) / close
-Feature calculation beta_60 took: 161.69126963615417 seconds | ts_slope(close, 60) / close
-Feature calculation rsqr_5 took: 98.4355137348175 seconds | ts_rsquare(close, 5)
-Feature calculation rsqr_10 took: 105.69292211532593 seconds | ts_rsquare(close, 10)
-Feature calculation rsqr_20 took: 117.86302876472473 seconds | ts_rsquare(close, 20)
-Feature calculation rsqr_30 took: 128.05792140960693 seconds | ts_rsquare(close, 30)
-Feature calculation rsqr_60 took: 160.61674571037292 seconds | ts_rsquare(close, 60)
-Feature calculation resi_5 took: 96.00216054916382 seconds | ts_resi(close, 5) / close
-Feature calculation resi_10 took: 103.68113470077515 seconds | ts_resi(close, 10) / close
-Feature calculation resi_20 took: 117.46282148361206 seconds | ts_resi(close, 20) / close
-Feature calculation resi_30 took: 128.4397177696228 seconds | ts_resi(close, 30) / close
-Feature calculation resi_60 took: 163.11627006530762 seconds | ts_resi(close, 60) / close
-Feature calculation max_5 took: 0.24281644821166992 seconds | ts_max(high, 5) / close
-Feature calculation max_10 took: 0.20947909355163574 seconds | ts_max(high, 10) / close
-Feature calculation max_20 took: 0.2054903507232666 seconds | ts_max(high, 20) / close
-Feature calculation max_30 took: 0.21176815032958984 seconds | ts_max(high, 30) / close
-Feature calculation max_60 took: 0.2297801971435547 seconds | ts_max(high, 60) / close
-Feature calculation min_5 took: 0.22397565841674805 seconds | ts_min(low, 5) / close
-Feature calculation min_10 took: 0.2770957946777344 seconds | ts_min(low, 10) / close
-Feature calculation min_20 took: 0.22864127159118652 seconds | ts_min(low, 20) / close
-Feature calculation min_30 took: 0.23917460441589355 seconds | ts_min(low, 30) / close
-Feature calculation min_60 took: 0.24895048141479492 seconds | ts_min(low, 60) / close
-Feature calculation qtlu_5 took: 96.78216600418091 seconds | ts_quantile(close, 5, 0.8) / close
-Feature calculation qtlu_10 took: 97.46675658226013 seconds | ts_quantile(close, 10, 0.8) / close
-Feature calculation qtlu_20 took: 99.03322577476501 seconds | ts_quantile(close, 20, 0.8) / close
-Feature calculation qtlu_30 took: 98.10146689414978 seconds | ts_quantile(close, 30, 0.8) / close
-Feature calculation qtlu_60 took: 99.28326296806335 seconds | ts_quantile(close, 60, 0.8) / close
-Feature calculation qtld_5 took: 95.1024751663208 seconds | ts_quantile(close, 5, 0.2) / close
-Feature calculation qtld_10 took: 96.96965503692627 seconds | ts_quantile(close, 10, 0.2) / close
-Feature calculation qtld_20 took: 100.69103527069092 seconds | ts_quantile(close, 20, 0.2) / close
-Feature calculation qtld_30 took: 101.33008074760437 seconds | ts_quantile(close, 30, 0.2) / close
-Feature calculation qtld_60 took: 106.51013970375061 seconds | ts_quantile(close, 60, 0.2) / close
-Feature calculation rank_5 took: 160.73542165756226 seconds | ts_rank(close, 5)
-Feature calculation rank_10 took: 160.9326593875885 seconds | ts_rank(close, 10)
-Feature calculation rank_20 took: 164.52361798286438 seconds | ts_rank(close, 20)
-Feature calculation rank_30 took: 157.80702543258667 seconds | ts_rank(close, 30)
-Feature calculation rank_60 took: 163.90107917785645 seconds | ts_rank(close, 60)
-Feature calculation rsv_5 took: 0.7424371242523193 seconds | (close - ts_min(low, 5)) / (ts_max(high, 5) - ts_min(low, 5) + 1e-12)
-Feature calculation rsv_10 took: 0.6877701282501221 seconds | (close - ts_min(low, 10)) / (ts_max(high, 10) - ts_min(low, 10) + 1e-12)
-Feature calculation rsv_20 took: 0.6682965755462646 seconds | (close - ts_min(low, 20)) / (ts_max(high, 20) - ts_min(low, 20) + 1e-12)
-Feature calculation rsv_30 took: 0.6967020034790039 seconds | (close - ts_min(low, 30)) / (ts_max(high, 30) - ts_min(low, 30) + 1e-12)
-Feature calculation rsv_60 took: 0.7261099815368652 seconds | (close - ts_min(low, 60)) / (ts_max(high, 60) - ts_min(low, 60) + 1e-12)
-Feature calculation imax_5 took: 93.15749406814575 seconds | ts_argmax(high, 5) / 5
-Feature calculation imax_10 took: 97.00010323524475 seconds | ts_argmax(high, 10) / 10
-Feature calculation imax_20 took: 95.75086617469788 seconds | ts_argmax(high, 20) / 20
-Feature calculation imax_30 took: 94.3081955909729 seconds | ts_argmax(high, 30) / 30
-Feature calculation imax_60 took: 95.44358968734741 seconds | ts_argmax(high, 60) / 60
-Feature calculation imin_5 took: 94.82134413719177 seconds | ts_argmin(low, 5) / 5
-Feature calculation imin_10 took: 96.87212753295898 seconds | ts_argmin(low, 10) / 10
-Feature calculation imin_20 took: 94.83068490028381 seconds | ts_argmin(low, 20) / 20
-Feature calculation imin_30 took: 94.77906894683838 seconds | ts_argmin(low, 30) / 30
-Feature calculation imin_60 took: 94.56806182861328 seconds | ts_argmin(low, 60) / 60
-Feature calculation imxd_5 took: 184.92250084877014 seconds | (ts_argmax(high, 5) - ts_argmin(low, 5)) / 5
-Feature calculation imxd_10 took: 193.73192262649536 seconds | (ts_argmax(high, 10) - ts_argmin(low, 10)) / 10
-Feature calculation imxd_20 took: 189.27179074287415 seconds | (ts_argmax(high, 20) - ts_argmin(low, 20)) / 20
-Feature calculation imxd_30 took: 189.3066222667694 seconds | (ts_argmax(high, 30) - ts_argmin(low, 30)) / 30
-Feature calculation imxd_60 took: 190.2363612651825 seconds | (ts_argmax(high, 60) - ts_argmin(low, 60)) / 60
- 55%|█████▌    | 88/159 [1:34:02<3:26:49, 174.78s/it] 56%|█████▌    | 89/159 [1:34:05<2:23:48, 123.27s/it] 57%|█████▋    | 90/159 [1:34:08<1:40:16, 87.19s/it]  57%|█████▋    | 91/159 [1:34:12<1:10:12, 61.95s/it] 58%|█████▊    | 92/159 [1:34:15<49:25, 44.26s/it]   58%|█████▊    | 93/159 [1:34:18<35:04, 31.89s/it] 59%|█████▉    | 94/159 [1:34:21<25:21, 23.41s/it] 60%|█████▉    | 95/159 [1:34:25<18:37, 17.46s/it] 60%|██████    | 96/159 [1:34:28<13:58, 13.31s/it] 61%|██████    | 97/159 [1:34:32<10:44, 10.40s/it] 62%|██████▏   | 98/159 [1:34:36<08:32,  8.40s/it] 62%|██████▏   | 99/159 [1:34:38<06:26,  6.45s/it] 63%|██████▎   | 100/159 [1:34:39<04:57,  5.05s/it] 64%|██████▎   | 101/159 [1:34:41<03:56,  4.08s/it] 64%|██████▍   | 102/159 [1:34:43<03:13,  3.40s/it] 65%|██████▍   | 103/159 [1:34:45<02:43,  2.92s/it] 65%|██████▌   | 104/159 [1:34:47<02:22,  2.59s/it] 66%|██████▌   | 105/159 [1:34:48<02:07,  2.36s/it] 67%|██████▋   | 106/159 [1:34:50<01:56,  2.19s/it] 67%|██████▋   | 107/159 [1:34:52<01:48,  2.08s/it] 68%|██████▊   | 108/159 [1:34:54<01:42,  2.01s/it] 69%|██████▊   | 109/159 [1:34:56<01:45,  2.11s/it] 69%|██████▉   | 110/159 [1:34:59<01:46,  2.17s/it] 70%|██████▉   | 111/159 [1:35:01<01:46,  2.22s/it] 70%|███████   | 112/159 [1:35:03<01:46,  2.26s/it] 71%|███████   | 113/159 [1:35:06<01:46,  2.32s/it] 72%|███████▏  | 114/159 [1:35:09<01:50,  2.46s/it] 72%|███████▏  | 115/159 [1:35:11<01:52,  2.56s/it] 73%|███████▎  | 116/159 [1:35:14<01:53,  2.64s/it] 74%|███████▎  | 117/159 [1:35:17<01:52,  2.68s/it] 74%|███████▍  | 118/159 [1:35:20<01:51,  2.71s/it] 75%|███████▍  | 119/159 [1:35:23<01:49,  2.74s/it] 75%|███████▌  | 120/159 [1:35:25<01:46,  2.74s/it] 76%|███████▌  | 121/159 [1:35:28<01:43,  2.74s/it] 77%|███████▋  | 122/159 [1:35:31<01:40,  2.73s/it] 77%|███████▋  | 123/159 [1:35:33<01:37,  2.72s/it] 78%|███████▊  | 124/159 [1:35:37<01:42,  2.94s/it] 79%|███████▊  | 125/159 [1:35:40<01:46,  3.13s/it] 79%|███████▉  | 126/159 [1:35:44<01:46,  3.24s/it] 80%|███████▉  | 127/159 [1:35:48<01:47,  3.35s/it] 81%|████████  | 128/159 [1:35:51<01:45,  3.40s/it] 81%|████████  | 129/159 [1:35:52<01:23,  2.80s/it] 82%|████████▏ | 130/159 [1:35:54<01:09,  2.40s/it] 82%|████████▏ | 131/159 [1:35:55<00:59,  2.11s/it] 83%|████████▎ | 132/159 [1:35:57<00:51,  1.92s/it] 84%|████████▎ | 133/159 [1:35:58<00:46,  1.79s/it] 84%|████████▍ | 134/159 [1:36:00<00:42,  1.71s/it] 85%|████████▍ | 135/159 [1:36:01<00:39,  1.64s/it] 86%|████████▌ | 136/159 [1:36:03<00:36,  1.59s/it] 86%|████████▌ | 137/159 [1:36:04<00:34,  1.57s/it] 87%|████████▋ | 138/159 [1:36:06<00:32,  1.55s/it] 87%|████████▋ | 139/159 [1:36:08<00:37,  1.86s/it] 88%|████████▊ | 140/159 [1:36:11<00:39,  2.07s/it] 89%|████████▊ | 141/159 [1:36:14<00:40,  2.23s/it] 89%|████████▉ | 142/159 [1:36:16<00:39,  2.34s/it] 90%|████████▉ | 143/159 [1:36:19<00:38,  2.40s/it] 91%|█████████ | 144/159 [1:36:21<00:37,  2.51s/it]Feature calculation corr_5 took: 1.827188491821289 seconds | ts_corr(close, ts_log(volume + 1), 5)
-Feature calculation corr_10 took: 1.783045768737793 seconds | ts_corr(close, ts_log(volume + 1), 10)
-Feature calculation corr_20 took: 1.8123853206634521 seconds | ts_corr(close, ts_log(volume + 1), 20)
-Feature calculation corr_30 took: 1.768092155456543 seconds | ts_corr(close, ts_log(volume + 1), 30)
-Feature calculation corr_60 took: 1.7901320457458496 seconds | ts_corr(close, ts_log(volume + 1), 60)
-Feature calculation cord_5 took: 2.380936861038208 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 5)
-Feature calculation cord_10 took: 2.3232474327087402 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 10)
-Feature calculation cord_20 took: 2.3885016441345215 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 20)
-Feature calculation cord_30 took: 2.3821001052856445 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 30)
-Feature calculation cord_60 took: 2.5055160522460938 seconds | ts_corr(close / ts_delay(close, 1), ts_log(volume / ts_delay(volume, 1) + 1), 60)
-Feature calculation cntp_5 took: 0.5290780067443848 seconds | ts_mean(close > ts_delay(close, 1), 5)
-Feature calculation cntp_10 took: 0.47765231132507324 seconds | ts_mean(close > ts_delay(close, 1), 10)
-Feature calculation cntp_20 took: 0.5179588794708252 seconds | ts_mean(close > ts_delay(close, 1), 20)
-Feature calculation cntp_30 took: 0.48876500129699707 seconds | ts_mean(close > ts_delay(close, 1), 30)
-Feature calculation cntp_60 took: 0.4880244731903076 seconds | ts_mean(close > ts_delay(close, 1), 60)
-Feature calculation cntn_5 took: 0.5152988433837891 seconds | ts_mean(close < ts_delay(close, 1), 5)
-Feature calculation cntn_10 took: 0.4922642707824707 seconds | ts_mean(close < ts_delay(close, 1), 10)
-Feature calculation cntn_20 took: 0.49471354484558105 seconds | ts_mean(close < ts_delay(close, 1), 20)
-Feature calculation cntn_30 took: 0.5273940563201904 seconds | ts_mean(close < ts_delay(close, 1), 30)
-Feature calculation cntn_60 took: 0.5125293731689453 seconds | ts_mean(close < ts_delay(close, 1), 60)
-Feature calculation cntd_5 took: 1.0308864116668701 seconds | ts_mean(close > ts_delay(close, 1), 5) - ts_mean(close < ts_delay(close, 1), 5)
-Feature calculation cntd_10 took: 0.9886605739593506 seconds | ts_mean(close > ts_delay(close, 1), 10) - ts_mean(close < ts_delay(close, 1), 10)
-Feature calculation cntd_20 took: 1.0116844177246094 seconds | ts_mean(close > ts_delay(close, 1), 20) - ts_mean(close < ts_delay(close, 1), 20)
-Feature calculation cntd_30 took: 1.038682460784912 seconds | ts_mean(close > ts_delay(close, 1), 30) - ts_mean(close < ts_delay(close, 1), 30)
-Feature calculation cntd_60 took: 1.1347541809082031 seconds | ts_mean(close > ts_delay(close, 1), 60) - ts_mean(close < ts_delay(close, 1), 60)
-Feature calculation sump_5 took: 1.484598159790039 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 5) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 5) + 1e-12)
-Feature calculation sump_10 took: 1.4756524562835693 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 10) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 10) + 1e-12)
-Feature calculation sump_20 took: 1.539684534072876 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 20) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 20) + 1e-12)
-Feature calculation sump_30 took: 1.4398291110992432 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 30) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 30) + 1e-12)
-Feature calculation sump_60 took: 1.4703631401062012 seconds | ts_sum(ts_greater(close - ts_delay(close, 1), 0), 60) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 60) + 1e-12)
-Feature calculation sumn_5 took: 1.4897408485412598 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 5) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 5) + 1e-12)
-Feature calculation sumn_10 took: 1.4372055530548096 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 10) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 10) + 1e-12)
-Feature calculation sumn_20 took: 1.387477159500122 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 20) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 20) + 1e-12)
-Feature calculation sumn_30 took: 1.3928251266479492 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 30) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 30) + 1e-12)
-Feature calculation sumn_60 took: 1.363755226135254 seconds | ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 60) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 60) + 1e-12)
-Feature calculation sumd_5 took: 2.122473955154419 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 5) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 5)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 5) + 1e-12)
-Feature calculation sumd_10 took: 2.2340102195739746 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 10) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 10)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 10) + 1e-12)
-Feature calculation sumd_20 took: 2.1755053997039795 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 20) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 20)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 20) + 1e-12)
-Feature calculation sumd_30 took: 2.2625105381011963 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 30) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 30)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 30) + 1e-12)
-Feature calculation sumd_60 took: 2.167858600616455 seconds | (ts_sum(ts_greater(close - ts_delay(close, 1), 0), 60) - ts_sum(ts_greater(ts_delay(close, 1) - close, 0), 60)) / (ts_sum(ts_abs(close - ts_delay(close, 1)), 60) + 1e-12)
-Feature calculation vma_5 took: 0.21649813652038574 seconds | ts_mean(volume, 5) / (volume + 1e-12)
-Feature calculation vma_10 took: 0.2114098072052002 seconds | ts_mean(volume, 10) / (volume + 1e-12)
-Feature calculation vma_20 took: 0.21168088912963867 seconds | ts_mean(volume, 20) / (volume + 1e-12)
-Feature calculation vma_30 took: 0.2347710132598877 seconds | ts_mean(volume, 30) / (volume + 1e-12)
-Feature calculation vma_60 took: 0.24497723579406738 seconds | ts_mean(volume, 60) / (volume + 1e-12)
-Feature calculation vstd_5 took: 0.2753162384033203 seconds | ts_std(volume, 5) / (volume + 1e-12)
-Feature calculation vstd_10 took: 0.2316732406616211 seconds | ts_std(volume, 10) / (volume + 1e-12)
-Feature calculation vstd_20 took: 0.2514355182647705 seconds | ts_std(volume, 20) / (volume + 1e-12)
-Feature calculation vstd_30 took: 0.255889892578125 seconds | ts_std(volume, 30) / (volume + 1e-12)
-Feature calculation vstd_60 took: 0.2647664546966553 seconds | ts_std(volume, 60) / (volume + 1e-12)
-Feature calculation wvma_5 took: 1.3586342334747314 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 5) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 5) + 1e-12)
-Feature calculation wvma_10 took: 1.303863286972046 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 10) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 10) + 1e-12)
-Feature calculation wvma_20 took: 1.368429183959961 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 20) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 20) + 1e-12)
-Feature calculation wvma_30 took: 1.3623008728027344 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 30) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 30) + 1e-12)
-Feature calculation wvma_60 took: 1.315009593963623 seconds | ts_std(ts_abs(close / ts_delay(close, 1) - 1) * volume, 60) / (ts_mean(ts_abs(close / ts_delay(close, 1) - 1) * volume, 60) + 1e-12)
-Feature calculation vsump_5 took: 1.401839256286621 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 5) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 5) + 1e-12)
-Feature calculation vsump_10 took: 1.4530887603759766 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 10) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 10) + 1e-12) 91%|█████████ | 145/159 [1:36:24<00:36,  2.58s/it] 92%|█████████▏| 146/159 [1:36:27<00:34,  2.62s/it] 92%|█████████▏| 147/159 [1:36:30<00:31,  2.64s/it] 93%|█████████▎| 148/159 [1:36:32<00:29,  2.67s/it] 94%|█████████▎| 149/159 [1:36:35<00:27,  2.71s/it] 94%|█████████▍| 150/159 [1:36:38<00:24,  2.73s/it] 95%|█████████▍| 151/159 [1:36:41<00:21,  2.73s/it] 96%|█████████▌| 152/159 [1:36:43<00:19,  2.74s/it] 96%|█████████▌| 153/159 [1:36:46<00:16,  2.74s/it] 97%|█████████▋| 154/159 [1:36:50<00:14,  2.95s/it] 97%|█████████▋| 155/159 [1:36:53<00:12,  3.09s/it] 98%|█████████▊| 156/159 [1:36:56<00:09,  3.21s/it] 99%|█████████▊| 157/159 [1:37:00<00:06,  3.32s/it] 99%|█████████▉| 158/159 [1:37:04<00:03,  3.38s/it]100%|██████████| 159/159 [1:37:05<00:00,  2.82s/it]100%|██████████| 159/159 [1:37:05<00:00, 36.64s/it]
-
-Feature calculation vsump_20 took: 1.3713858127593994 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 20) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 20) + 1e-12)
-Feature calculation vsump_30 took: 1.3605573177337646 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 30) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 30) + 1e-12)
-Feature calculation vsump_60 took: 1.4118316173553467 seconds | ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 60) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 60) + 1e-12)
-Feature calculation vsumn_5 took: 1.4723644256591797 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 5) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 5) + 1e-12)
-Feature calculation vsumn_10 took: 1.4374268054962158 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 10) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 10) + 1e-12)
-Feature calculation vsumn_20 took: 1.4174165725708008 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 20) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 20) + 1e-12)
-Feature calculation vsumn_30 took: 1.4502062797546387 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 30) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 30) + 1e-12)
-Feature calculation vsumn_60 took: 1.4393706321716309 seconds | ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 60) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 60) + 1e-12)
-Feature calculation vsumd_5 took: 2.1004834175109863 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 5) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 5)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 5) + 1e-12)
-Feature calculation vsumd_10 took: 2.097257137298584 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 10) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 10)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 10) + 1e-12)
-Feature calculation vsumd_20 took: 2.178682565689087 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 20) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 20)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 20) + 1e-12)
-Feature calculation vsumd_30 took: 2.2706267833709717 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 30) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 30)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 30) + 1e-12)
-Feature calculation vsumd_60 took: 2.1891071796417236 seconds | (ts_sum(ts_greater(volume - ts_delay(volume, 1), 0), 60) - ts_sum(ts_greater(ts_delay(volume, 1) - volume, 0), 60)) / (ts_sum(ts_abs(volume - ts_delay(volume, 1)), 60) + 1e-12)
-Feature calculation label took: 0.3702561855316162 seconds | ts_delay(close, -3) / ts_delay(close, -1) - 1
-[32m2025-10-30 03:25:54[0m [1m表达式计算完成 | 数量: 159 | 耗时: 5826.369s[0m
-[32m2025-10-30 03:25:54[0m [1m合并表达式结果到 DataFrame | 耗时: 0.001s[0m
-[32m2025-10-30 03:25:54[0m [1m开始合并结果数据因子特征[0m
-0it [00:00, ?it/s]0it [00:00, ?it/s]
-[32m2025-10-30 03:25:54[0m [1m合并结果数据因子特征完成 | 数量: 0 | 耗时: 0.000s[0m
-[32m2025-10-30 03:25:54[0m [1m生成 raw_df（填充 NaN）| 耗时: 0.424s[0m
-/home/lai/miniconda3/lib/python3.13/multiprocessing/resource_tracker.py:324: UserWarning: resource_tracker: There appear to be 6 leaked semaphore objects to clean up at shutdown: {'/loky-2786009-lyi3tkuo', '/loky-2786009-euxbv324', '/loky-2786009-iwip9g8j', '/loky-2786009-lkdad2qr', '/loky-2786009-msx76w6_', '/loky-2786009-f1qv3tm7'}
-  warnings.warn(

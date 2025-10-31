@@ -69,7 +69,7 @@ class LgbModel(AlphaModel):
         # Process training and validation separately
         for segment in [Segment.TRAIN, Segment.VALID]:
             # Get data for learning
-            df: pl.DataFrame = dataset.fetch_learn(segment)
+            df: pl.DataFrame = dataset.fetch_feat(segment)
             #df = df.sort(["datetime", "vt_symbol"])
 
             # Convert to numpy arrays
@@ -136,7 +136,7 @@ class LgbModel(AlphaModel):
             raise ValueError("model is not fitted yet!")
 
         # Get data for inference
-        df: pl.DataFrame = dataset.fetch_infer(segment)
+        df: pl.DataFrame = dataset.fetch_feat(segment)
         df = df.sort(["datetime", "vt_symbol"])
 
         # Convert to numpy array

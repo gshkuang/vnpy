@@ -25,16 +25,9 @@ class AlphaDataset:
         train_period: tuple[str, str],
         valid_period: tuple[str, str],
         test_period: tuple[str, str],
-        process_type: str = "append",
     ) -> None:
         """Constructor"""
         self.df: pl.DataFrame = df
-
-        # DataFrames for processed data
-        self.result_df: pl.DataFrame
-        # self.raw_df: pl.DataFrame
-        self.infer_df: pl.DataFrame
-        self.learn_df: pl.DataFrame
 
         # New version
         self.data_periods: dict[Segment, tuple[str, str]] = {
@@ -43,244 +36,106 @@ class AlphaDataset:
             Segment.TEST: test_period,
         }
 
-        # Feature storage using DataProxy (LazyFrame-based)
+        # 特征集合
         self.features: dict[str, FeatProxy] = {}
-        self.feature_results: dict[str, pl.DataFrame] = {}
-        self.label_feature: FeatProxy | None = None
+        self.label_feature: tuple[str, FeatProxy] | None = None
 
-        self.process_type: str = process_type
-        self.infer_processors: list = []
+        # 分段缓存（统一）
+        self.segment_data: dict[Segment, pl.DataFrame] = {}
+
+        # 处理器统一（用于 infer/learn）
         self.learn_processors: list = []
 
     def add_feature(
         self,
         name: str,
-        feature: FeatProxy | None = None,
-        result: pl.DataFrame | None = None,
+        feature: FeatProxy
     ) -> None:
-        """
-        Add a feature. Prefer DataProxy; optionally accept a ready DataFrame result.
-        """
-        if feature is not None and result is not None:
-            raise ValueError("Only one of 'feature' or 'result' can be provided")
+        """Add a feature and record meta attributes for unified management"""
+        self.features[name] = feature
+    
 
-        if feature is not None:
-            self.features[name] = feature
-        elif result is not None:
-            self.feature_results[name] = result
-
-    def set_label(self, feature: FeatProxy) -> None:
-        """
-        Set the label feature
-        """
-        self.label_feature = feature
+    def set_label(self,  feature: FeatProxy) -> None:
+        """Set label feature as (name, feature) tuple"""
+        self.label_feature = ("label", feature)
+        
+    @property
+    def select_columns(self) -> list[str]:
+        feature_cols: list[str] = list(self.features.keys())
+        label_cols: list[str] = [self.label_feature[0]] if self.label_feature else []
+        return ["datetime", "vt_symbol","close"]+ feature_cols + label_cols
 
     def add_processor(
-        self, task: str, processor: Callable[[pl.DataFrame], None]
+        self, processor: Callable[[pl.DataFrame], None]
     ) -> None:
-        """
-        Add a feature preprocessor
-        """
-        if task == "infer":
-            self.infer_processors.append(processor)
-        else:
-            self.learn_processors.append(processor)
+        self.learn_processors.append(processor)
 
     def prepare_data(
-        self, filters: dict | None = None, max_workers: int | None = None
+        self,  max_workers: int=4
     ) -> None:
         """
-        Generate required data
+        Generate required data once, then cache per segment to avoid duplication.
+        - 计算特征与标签得到 result_df
+        - 按元属性选择列生成 raw_df（键列 + 特征 + 标签）
+        - 处理器链执行一次，得到 processed_df
+        - processed_df 按周期切片，统一放入 segment_data（相同引用，避免重复）
         """
-        # 收集各特征计算后的 DataFrame（包含键列与命名列）
-        feat_dfs: list[pl.DataFrame] = []
-
-        # Calculate DataProxy features
-        logger.info("开始计算 DataProxy 因子特征")
+        feats: list[pl.Series] = []
+    
+        logger.info("开始计算 因子特征")
         t_feat_start = time.time()
-
+    
+        # 仅在 label_feature 存在时加入任务，避免 None 导致错误
         tasks: list[tuple[str, FeatProxy]] = list(self.features.items())
         if self.label_feature is not None:
-            tasks.append(("label", self.label_feature))
-
+            tasks.append(self.label_feature)
+    
         if tasks:
-            # Simplify: compute features sequentially to avoid pickling LazyFrame
             args: list[tuple[str, FeatProxy]] = [(name, feature) for name, feature in tasks]
             context: BaseContext = get_context("spawn")
-
             with context.Pool(processes=max_workers) as pool:
-                            # Calculate all expressions in parallel
                 it = pool.imap(calculate_feature, args)
                 for result in tqdm(it, total=len(args)):
-                    feat_dfs.append(result)
-
+                    feats.append(result)
+    
         t_feat_end = time.time()
-        logger.info(f"DataProxy 因子计算完成 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
+        result_df = self.df.with_columns(feats).fill_null(float("nan")).select(self.select_columns).sort(["datetime", "vt_symbol"])
+        
+        logger.info(f"因子计算完成 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
 
-        # 按键 join 合并所有特征与标签
-        t_join_start = time.time()
-        self.result_df = self.df
-        for i, fdf in enumerate(feat_dfs, start=1):
-            self.result_df = self.result_df.join(fdf, on=["datetime", "vt_symbol"], how="inner")
-        t_join_end = time.time()
-        logger.info(f"按键合并因子到 DataFrame | 合并数量: {len(feat_dfs)} | 耗时: {t_join_end - t_join_start:.3f}s")
-
-        # Merge result data factor features
-        logger.info("开始合并结果数据因子特征")
-        t_merge_start = time.time()
-
-        for name, feature_result in tqdm(self.feature_results.items()):
-            feature_result = feature_result.rename({"data": name})
-            self.result_df = self.result_df.join(
-                feature_result, on=["datetime", "vt_symbol"], how="inner"
-            )
-
-        t_merge_end = time.time()
-        logger.info(
-            f"合并结果数据因子特征完成 | 数量: {len(self.feature_results)} | 耗时: {t_merge_end - t_merge_start:.3f}s"
-        )
-
-        # Generate raw data
-        t_raw_start = time.time()
-        raw_df = self.result_df.fill_null(float("nan"))
-        t_raw_end = time.time()
-        logger.info(f"生成 raw_df（填充 NaN）| 耗时: {t_raw_end - t_raw_start:.3f}s")
-
-        if filters:
-            logger.info("开始筛选成分股数据")
-            t_filter_start = time.time()
-
-            # 构造区间 DataFrame 并转换为 datetime
-            ranges_rows: list[dict] = []
-            for vt_symbol, ranges in filters.items():
-                for start, end in ranges:
-                    ranges_rows.append(
-                        {
-                            "vt_symbol": vt_symbol,
-                            "range_start": to_datetime(start),
-                            "range_end": to_datetime(end),
-                        }
-                    )
-
-            ranges_df = pl.DataFrame(ranges_rows).sort(["vt_symbol", "range_start"])
-
-            # join_asof 需要按时间列排序
-            # raw_df = raw_df.sort(["vt_symbol", "datetime"])
-            # 对齐每条数据到最近的区间起点（同 vt_symbol）
-            raw_df = raw_df.lazy().join_asof(
-                ranges_df.lazy(),
-                left_on="datetime",
-                right_on="range_start",
-                by="vt_symbol",
-                strategy="backward",
-            ).filter(
-                pl.col("range_start").is_not_null()
-                & (pl.col("datetime") <= pl.col("range_end"))
-            ).select(raw_df.columns).collect()
-
-            t_filter_end = time.time()
-            logger.info(f"筛选成分股数据完成 | 合计合并条目: {len(filters)} | 耗时: {t_filter_end - t_filter_start:.3f}s")
-
-        # Only keep feature columns
-        t_select_sort_start = time.time()
-        select_columns: list[str] = ["datetime", "vt_symbol"] + raw_df.columns[
-            self.df.width :
-        ]
-        raw_df = raw_df.select(select_columns).sort(["datetime", "vt_symbol"])
-        t_select_sort_end = time.time()
-        logger.info(f"选择特征列并排序完成 | 列数: {len(select_columns)} | 耗时: {t_select_sort_end - t_select_sort_start:.3f}s")
-
-        # Generate inference data
-        self.infer_df = raw_df
-        print(self.infer_df.head())
-        print(self.infer_df.shape)
-        print(self.infer_processors)
-        for i, processor in enumerate(self.infer_processors, start=1):
-            t_proc_start = time.time()
-            self.infer_df = processor(df=self.infer_df)
-            t_proc_end = time.time()
-            proc_name = getattr(processor, "__name__", processor.__class__.__name__)
-            logger.info(f"infer 处理器[{i}] {proc_name} 完成 | 耗时: {t_proc_end - t_proc_start:.3f}s")
-
-        # Generate learning data
-        t_learn_assign_start = time.time()
-        if self.process_type == "append":
-            self.learn_df = self.infer_df
-        else:
-            self.learn_df = raw_df
-        t_learn_assign_end = time.time()
-        logger.info(f"学习数据赋值完成（process_type={self.process_type}）| 耗时: {t_learn_assign_end - t_learn_assign_start:.3f}s")
-
+        # 处理器链只执行一次，得到 processed_df
+        logger.info("开始执行处理器链")
         for i, processor in enumerate(self.learn_processors, start=1):
             t_proc_start = time.time()
-            self.learn_df = processor(df=self.learn_df)
+            result_df = processor(df=result_df)
             t_proc_end = time.time()
             proc_name = getattr(processor, "__name__", processor.__class__.__name__)
-            logger.info(f"learn 处理器[{i}] {proc_name} 完成 | 耗时: {t_proc_end - t_proc_start:.3f}s")
+            logger.info(f"处理器[{i}] {proc_name} 完成 | 耗时: {t_proc_end - t_proc_start:.3f}s")
 
-    # def fetch_raw(self, segment: Segment) -> pl.DataFrame:
-    #     """
-    #     Get raw data for a specific segment
-    #     """
-    #     start, end = self.data_periods[segment]
-    #     return query_by_time(self.raw_df, start, end)
+    
+        # 按周期分段缓存（合并为 segment_data）
+        logger.info("按周期切片缓存处理结果")
+        for seg, (start, end) in self.data_periods.items():
+            seg_df = query_by_time(result_df, start, end)
+            self.segment_data[seg] = seg_df
+    
+        logger.info("数据准备完成：处理一次、按周期缓存、去重存储")
 
-    def fetch_infer(self, segment: Segment) -> pl.DataFrame:
-        """
-        Get inference data for a specific segment
-        """
-        start, end = self.data_periods[segment]
-        return query_by_time(self.infer_df, start, end)
 
-    def fetch_learn(self, segment: Segment) -> pl.DataFrame:
-        """
-        Get learning data for a specific segment
-        """
-        start, end = self.data_periods[segment]
-        return query_by_time(self.learn_df, start, end)
+    def fetch_feat(self, segment: Segment) -> pl.DataFrame:
+        return self.segment_data[segment]
 
     def show_feature_performance(self, name: str) -> None:
-        """
-        Perform performance analysis for a feature
-        """
-        starts: list[datetime] = []
-        ends: list[datetime] = []
-
-        for period in self.data_periods.values():
-            starts.append(to_datetime(period[0]))
-            ends.append(to_datetime(period[1]))
-
-        start: datetime = min(starts)
-        end: datetime = max(ends)
-
-        # Select range
-        df: pl.DataFrame = query_by_time(self.result_df, start, end)
-
-        # Extract feature
-        feature_df: pd.DataFrame = df.select(
-            ["datetime", "vt_symbol", name]
-        ).to_pandas()
-        feature_df.set_index(["datetime", "vt_symbol"], inplace=True)
-        # print(feature_df.head())
-        freq: str = pd.infer_freq(feature_df.index.levels[0])
-        print(f"infer freq: {freq}")
-        feature_df.index.levels[0].freq = freq
-
-        feature_s: pd.Series = feature_df[name]
-
-        # Extract price
-        price_df: pd.DataFrame = df.select(
-            ["datetime", "vt_symbol", "close"]
-        ).to_pandas()
-        price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
-
-        # Merge data
-        clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
-            feature_s, price_df, quantiles=10
+        combined_df: pl.DataFrame = pl.concat([
+            self.segment_data[Segment.TRAIN],
+            self.segment_data[Segment.VALID],
+            self.segment_data[Segment.TEST],
+        ])
+        signal: pl.DataFrame = combined_df.select(
+            ["datetime", "vt_symbol", pl.col(name).alias("signal")]
         )
+        self.show_signal_performance(signal)
 
-        # Perform analysis
-        create_full_tear_sheet(clean_data)
 
     def show_signal_performance(self, signal: pl.DataFrame) -> None:
         """
@@ -291,7 +146,7 @@ class AlphaDataset:
         end: datetime = cast(datetime, signal["datetime"].max())
 
         # Select range
-        df: pl.DataFrame = query_by_time(self.result_df, start, end)
+        df: pl.DataFrame = query_by_time(self.df, start, end)
 
         # Extract feature
         signal_df: pd.DataFrame = signal.to_pandas()
@@ -317,59 +172,60 @@ class AlphaDataset:
 
     def save(self, path: Path ) -> None:
         """
-        将数据集保存到目录：每个DataFrame为parquet，元数据为pkl。
-        仅保存轻量元数据，避免表达式/处理器等不可序列化对象。
+        保存到目录：仅保存分段数据为三个 parquet，元数据为 pkl。
         """
-
-        # 保存元数据（分段与处理类型）
+        # 保存元数据（分段与 schema）
         periods: dict[str, tuple[str, str]] = {
             seg.name: period for seg, period in self.data_periods.items()
         }
         meta = {
-            "schema_version": 1,
-            "process_type": self.process_type,
+            "schema_version": 2,
             "periods": periods
         }
         with open(path.joinpath("meta.pkl"), "wb") as f:
             pickle.dump(meta, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # 逐个保存DataFrame为parquet（存在才保存）
-        for attr in ["df", "result_df",  "infer_df", "learn_df"]:
-            df_obj = getattr(self, attr, None)
+    
+        # 仅保存按周期的处理后数据，三个 parquet
+        for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
+            df_obj = self.segment_data.get(seg)
             if isinstance(df_obj, pl.DataFrame):
-                df_obj.write_parquet(path.joinpath(f"{attr}.parquet"))
+                df_obj.write_parquet(path.joinpath(f"segment_{seg.name.lower()}.parquet"))
 
     @classmethod
     def load(cls, path: Path) -> "AlphaDataset":
         """
-        从目录加载数据集：读取元数据与各DataFrame的parquet。
+        从目录加载数据集：读取元数据与每段 DataFrame（三个 parquet）。
         """
         meta_file = path.joinpath("meta.pkl")
         if not meta_file.exists():
             raise FileNotFoundError(f"Dataset meta file not found: {meta_file}")
-
+    
         with open(meta_file, "rb") as f:
             meta = pickle.load(f)
-
+    
         periods: dict[str, tuple[str, str]] = meta.get("periods", {})
         train = periods.get("TRAIN", ("", ""))
         valid = periods.get("VALID", ("", ""))
         test = periods.get("TEST", ("", ""))
-        process_type = meta.get("process_type", "append")
-
-        # df 为必需
-        df_file = path.joinpath("df.parquet")
-        if not df_file.exists():
-            raise FileNotFoundError(f"Dataset main df file not found: {df_file}")
-        df = pl.read_parquet(df_file)
-
-        dataset = cls(df, train, valid, test, process_type=process_type)
-
-        for attr in ["result_df","infer_df", "learn_df"]:
-            file = path.joinpath(f"{attr}.parquet")
+    
+        # 读入各段 parquet
+        segment_map: dict[Segment, pl.DataFrame] = {}
+        for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
+            file = path.joinpath(f"segment_{seg.name.lower()}.parquet")
             if file.exists():
-                setattr(dataset, attr, pl.read_parquet(file))
-
+                segment_map[seg] = pl.read_parquet(file)
+            else:
+                segment_map[seg] = pl.DataFrame()
+    
+        # 构造 df：用三段合并（用于保持构造签名与基本功能）
+        non_empty = [segment_map[s] for s in [Segment.TRAIN, Segment.VALID, Segment.TEST] if segment_map[s].height > 0]
+        df = pl.concat(non_empty, how="diagonal_relaxed") if non_empty else pl.DataFrame()
+    
+        dataset = cls(df, train, valid, test)
+    
+        # 设置统一的分段缓存
+        dataset.segment_data = segment_map
+    
         return dataset
 
 
@@ -387,12 +243,12 @@ def query_by_time(
         end = to_datetime(end)
         df = df.filter(pl.col("datetime") <= end)
 
-    return df.sort(["datetime", "vt_symbol"])
+    return df
 
 
 def calculate_feature(
     args: tuple[str, FeatProxy],
-) -> pl.DataFrame:
+) -> pl.Series:
     """
     计算单个特征：收集 LazyFrame 为 DataFrame，重命名为特征名，并保留键列。
     返回形如 [datetime, vt_symbol, <name>] 的 DataFrame。
@@ -400,10 +256,9 @@ def calculate_feature(
     start = time.time()
 
     name, feature = args
-    df: pl.DataFrame = feature.df.collect(engine="gpu")
-    df = df.rename({"data": name})
+    result = feature.df.collect(engine="gpu")["data"].alias(name)
 
     end = time.time()
     print(f"Feature calculation {name} took: {end - start} seconds")
 
-    return df.select(["datetime", "vt_symbol", name])
+    return result

@@ -40,37 +40,37 @@ def main():
     # 创建数据中心与加载符号（移入 main，避免导入期执行）
     lab: AlphaLab = AlphaLab("./lab/crypto_1m")
 
-    # component_symbols: list[str] = lab.load_component_symbols(index_symbol, start, end)[:10]
-    # component_symbols = [s for s in component_symbols if not s.startswith("FUSDT")]
-    # print(component_symbols)
+    component_symbols: list[str] = lab.load_component_symbols(index_symbol, start, end)[:10]
+    component_symbols = [s for s in component_symbols if not s.startswith("FUSDT")]
+    print(component_symbols)
 
-    # # 加载成分股数据
-    # df: pl.DataFrame = lab.load_bar_df(component_symbols, interval, start, end, extended_days)
-    # df = df.unique(subset=["datetime", "vt_symbol"], keep="first")
-    # print(df.head())
+    # 加载成分股数据
+    df: pl.DataFrame = lab.load_bar_df(component_symbols, interval, start, end, extended_days)
+    df = df.unique(subset=["datetime", "vt_symbol"], keep="first")
+    print(df.head())
 
-    # # 创建数据集对象与预处理器
-    # dataset: AlphaDataset = Alpha158(
-    #     df,
-    #     train_period=train_period,
-    #     valid_period=valid_period,
-    #     test_period=test_period,
-    # )
+    # 创建数据集对象与预处理器
+    dataset: AlphaDataset = Alpha158(
+        df,
+        train_period=train_period,
+        valid_period=valid_period,
+        test_period=test_period,
+    )
 
-    # fit_start_time: datetime = to_datetime(train_period[0])
-    # fit_end_time: datetime = to_datetime(train_period[1])
-    # print(f"fit_start_time: {fit_start_time}")
-    # print(f"fit_end_time: {fit_end_time}")
+    fit_start_time: datetime = to_datetime(train_period[0])
+    fit_end_time: datetime = to_datetime(train_period[1])
+    print(f"fit_start_time: {fit_start_time}")
+    print(f"fit_end_time: {fit_end_time}")
 
-    # dataset.add_processor("infer", partial(process_robust_zscore_norm, fit_start_time=fit_start_time, fit_end_time=fit_end_time))
-    # dataset.add_processor("infer", partial(process_fill_na, fill_value=0, fill_label=False))
-    # dataset.add_processor("learn", partial(process_drop_na, names=["label"]))
-    # dataset.add_processor("learn", partial(process_cs_rank_norm, names=["label"]))
+    dataset.add_processor("infer", partial(process_robust_zscore_norm, fit_start_time=fit_start_time, fit_end_time=fit_end_time))
+    dataset.add_processor("infer", partial(process_fill_na, fill_value=0, fill_label=False))
+    dataset.add_processor("learn", partial(process_drop_na, names=["label"]))
+    dataset.add_processor("learn", partial(process_cs_rank_norm, names=["label"]))
 
-    # # 收集指数成分过滤器并准备数据（多进程）
-    # #filters: dict[str, list[str]] = lab.load_component_filters(index_symbol, start, end)
-    # dataset.prepare_data({}, max_workers=1)
-    # lab.save_dataset(name, dataset)
+    # 收集指数成分过滤器并准备数据（多进程）
+    #filters: dict[str, list[str]] = lab.load_component_filters(index_symbol, start, end)
+    dataset.prepare_data( max_workers=1)
+    lab.save_dataset(name, dataset)
 
     # 模型训练
     from vnpy.alpha import Segment, AlphaModel
@@ -114,7 +114,7 @@ def main():
     # 预测信号
     model_loaded: AlphaModel = lab.load_model(name)
     pre: np.ndarray = model_loaded.predict(dataset_loaded, Segment.TEST)
-    df_t: pl.DataFrame = dataset_loaded.fetch_infer(Segment.TEST)
+    df_t: pl.DataFrame = dataset_loaded.fetch_feat(Segment.TEST)
     df_t = df_t.with_columns(pl.Series(pre).alias("signal"))
     signal: pl.DataFrame = df_t["datetime", "vt_symbol", "signal"]
     dataset_loaded.show_signal_performance(signal)

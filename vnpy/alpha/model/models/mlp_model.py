@@ -165,7 +165,8 @@ class MlpModel(AlphaModel):
         # Process training and validation sets separately
         for segment in [Segment.TRAIN, Segment.VALID]:
             # Get learning data and sort by time and trading code
-            df: pl.DataFrame = dataset.fetch_learn(segment)
+            df: pl.DataFrame = dataset.fetch_feat(segment)
+            print(df.shape)
             #df = df.sort(["datetime", "vt_symbol"])
 
             # Extract features and labels
@@ -173,8 +174,9 @@ class MlpModel(AlphaModel):
             # labels = np.array(df["label"])
 
             # Store feature and label data
-            train_valid_data["x"][segment] = df.select(df.columns[2: -1]).to_torch(device=self.device,dtype=torch.float32)
-            train_valid_data["y"][segment] = df["label"].to_torch(device=self.device,dtype=torch.float32)
+            train_valid_data["x"][segment] = df.select(df.columns[2: -1]).to_torch(dtype=pl.Float32).to(self.device)
+            train_valid_data["y"][segment] = torch.from_numpy( np.array(df["label"])).float().to(self.device)
+
 
             # Initialize evaluation results list
             evaluation_results[segment] = []
@@ -187,7 +189,7 @@ class MlpModel(AlphaModel):
         best_params = None                  # Best model parameters
 
         train_samples: int = train_valid_data["y"][Segment.TRAIN].shape[0]
-        logger.info("开始训练模型")
+        logger.info(f"开始训练模型, 总样本数: {train_samples}")
 
         # Iterate through training steps
         for step in range(1, self.n_epochs + 1):
@@ -402,7 +404,7 @@ class MlpModel(AlphaModel):
         if not self.fitted:
             raise ValueError("Model has not been trained yet!")
 
-        df: pl.DataFrame = dataset.fetch_infer(segment)
+        df: pl.DataFrame = dataset.fetch_feat(segment)
         df = df.sort(["datetime", "vt_symbol"])
 
         data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
