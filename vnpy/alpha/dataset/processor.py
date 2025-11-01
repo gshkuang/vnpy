@@ -4,132 +4,111 @@ import polars as pl
 from .utility import to_datetime
 
 
-def process_drop_na(df: pl.DataFrame, names: list[str] | None = None) -> pl.DataFrame:
-    """Remove rows with missing values"""
+def process_drop_na(lf: pl.LazyFrame, names: list[str] | None = None) -> pl.LazyFrame:
+    """Remove rows with missing values (lazy in/out)."""
     if names is None:
-        names = df.columns[2:-1]
-
-    for name in names:
-        df = df.with_columns(
-            pl.col(name).fill_nan(None)
-        )
-    df = df.drop_nulls(subset=names)
-    return df
+        names = lf.collect_schema().names()[2:-1]
+    return lf.with_columns(pl.col(names).fill_nan(None)).drop_nulls(subset=names)
 
 
-def process_fill_na(df: pl.DataFrame, fill_value: float, fill_label: bool = True) -> pl.DataFrame:
-    """Fill missing values"""
-    if fill_label:
-        df = df.fill_null(fill_value)
-        df = df.fill_nan(fill_value)
-    else:
-        df = df.with_columns(
-            [pl.col(col).fill_null(fill_value).fill_nan(fill_value) for col in df.columns[2:-1]]
-        )
-    return df
+def process_fill_na(lf: pl.LazyFrame, fill_value: float, fill_label: bool = True) -> pl.LazyFrame:
+    """Fill missing values (lazy in/out)."""
+    target = pl.all() if fill_label else pl.col(lf.collect_schema().names()[2:-1])
+    return lf.with_columns(target.fill_null(fill_value).fill_nan(fill_value))
 
 
 def process_cs_norm(
-    df: pl.DataFrame,
+    lf: pl.LazyFrame,
     names: list[str],
     method: str         # robust/zscore
-) -> pl.DataFrame:
-    """Cross-sectional normalization"""
-    _df: pl.DataFrame = df.fill_nan(None)
-
-    # Median method
+) -> pl.LazyFrame:
+    """Cross-sectional normalization (lazy in/out)."""
     if method == "robust":
-        for col in names:
-            df = df.with_columns(
-                _df.select(
-                    (pl.col(col) - pl.col(col).median()).over("datetime").alias(col),
-                )
-            )
+        # per-datetime median and MAD computed in one aggregation
+        agg_exprs = []
+        for c in names:
+            median_expr = pl.col(c).median().alias(f"{c}_median")
+            mad_expr = (pl.col(c) - pl.col(c).median()).abs().median().alias(f"{c}_mad")
+            agg_exprs.extend([median_expr, mad_expr])
 
-            df = df.with_columns(
-                df.select(
-                    pl.col(col).abs().median().over("datetime").alias("mad"),
-                )
-            )
+        stats = lf.groupby("datetime").agg(agg_exprs)
+        joined = lf.join(stats, on="datetime", how="left")
 
-            df = df.with_columns(
-                (pl.col(col) / pl.col("mad") / 1.4826).clip(-3, 3).alias(col)
-            ).drop(["mad"])
-    # Z-Score method
+        dev_cols = [
+            (pl.col(c) - pl.col(f"{c}_median")).alias(f"{c}_dev") for c in names
+        ]
+        with_dev = joined.with_columns(dev_cols)
+
+        norm_exprs = []
+        for c in names:
+            std_like = (pl.col(f"{c}_mad") * 1.4826 + 1e-12)
+            norm = (pl.col(f"{c}_dev") / std_like)
+            norm_exprs.append(norm.clip(-3, 3).alias(c))
+
+        drop_cols = [f"{c}_median" for c in names] + [f"{c}_mad" for c in names] + [f"{c}_dev" for c in names]
+        return with_dev.with_columns(norm_exprs).drop(drop_cols)
     else:
-        for col in names:
-            df = df.with_columns(
-                _df.select(
-                    pl.col(col).mean().over("datetime").alias("mean"),
-                    pl.col(col).std().over("datetime").alias("std"),
-                )
-            )
+        stats = lf.groupby("datetime").agg(
+            [pl.col(c).mean().alias(f"{c}_mean") for c in names] +
+            [pl.col(c).std().alias(f"{c}_std") for c in names]
+        )
+        joined = lf.join(stats, on="datetime", how="left")
 
-            df = df.with_columns(
-                (pl.col(col) - pl.col("mean")) / pl.col("std").alias(col)
-            ).drop(["mean", "std"])
+        dev_cols = [
+            (pl.col(c) - pl.col(f"{c}_mean")).alias(f"{c}_dev") for c in names
+        ]
+        with_dev = joined.with_columns(dev_cols)
 
-    return df
+        exprs = [
+            (pl.col(f"{c}_dev") / (pl.col(f"{c}_std") + 1e-12)).alias(c)
+            for c in names
+        ]
+        drop_cols = [f"{c}_mean" for c in names] + [f"{c}_std" for c in names] + [f"{c}_dev" for c in names]
+        return with_dev.with_columns(exprs).drop(drop_cols)
 
 
 def process_robust_zscore_norm(
-    df: pl.DataFrame,
+    lf: pl.LazyFrame,
     fit_start_time: datetime | str | None = None,
     fit_end_time: datetime | str | None = None,
     clip_outlier: bool = True
-) -> pl.DataFrame:
-    """Robust Z-Score normalization - Optimized Polars version"""
-    _df: pl.DataFrame = df.fill_nan(None)
+) -> pl.LazyFrame:
+    """Robust Z-Score normalization (lazy in/out, no early collect)."""
+    cols = lf.collect_schema().names()[2:-1]
+    base = lf.with_columns(pl.col(cols).fill_nan(None))
 
     if fit_start_time and fit_end_time:
         fit_start_time = to_datetime(fit_start_time)
         fit_end_time = to_datetime(fit_end_time)
-        _df = _df.filter((pl.col("datetime") >= fit_start_time) & (pl.col("datetime") <= fit_end_time))
+        lf_fit = base.filter((pl.col("datetime") >= fit_start_time) & (pl.col("datetime") <= fit_end_time))
+    else:
+        lf_fit = base
 
-    cols = df.columns[2:-1]
-    
-    # Calculate median and MAD for each column using native Polars operations
-    # This avoids expensive numpy conversion
-    stats_exprs = []
-    for col in cols:
-        median_expr = pl.col(col).median().alias(f"{col}_median")
-        mad_expr = (pl.col(col) - pl.col(col).median()).abs().median().alias(f"{col}_mad")
-        stats_exprs.extend([median_expr, mad_expr])
-    
-    # Calculate all statistics in one pass
-    stats = _df.select(stats_exprs).row(0)
-    
-    # Create normalization expressions
+    # global medians across fit window
+    median_stats = lf_fit.select([pl.col(c).median().alias(f"{c}_median") for c in cols])
+    # absolute deviations using broadcasted medians, then MAD across window
+    dev_abs = lf_fit.join(median_stats, how="cross").select([
+        (pl.col(c) - pl.col(f"{c}_median")).abs().alias(f"{c}_abs_dev") for c in cols
+    ])
+    mad_stats = dev_abs.select([pl.col(f"{c}_abs_dev").median().alias(f"{c}_mad") for c in cols])
+
+    # broadcast stats back to full frame and normalize
+    joined = base.join(median_stats, how="cross").join(mad_stats, how="cross")
     norm_exprs = []
-    for i, col in enumerate(cols):
-        median_val = stats[i * 2]
-        mad_val = stats[i * 2 + 1]
-        std_val = mad_val * 1.4826 + 1e-12
-        
-        normalized_col = ((pl.col(col) - median_val) / std_val).cast(pl.Float64)
-        
+    for c in cols:
+        std_like = (pl.col(f"{c}_mad") * 1.4826 + 1e-12)
+        expr = ((pl.col(c) - pl.col(f"{c}_median")) / std_like).cast(pl.Float64)
         if clip_outlier:
-            normalized_col = normalized_col.clip(-3, 3)
-            
-        norm_exprs.append(normalized_col.alias(col))
-    
-    # Apply all normalizations in one operation
-    df = df.with_columns(norm_exprs)
+            expr = expr.clip(-3, 3)
+        norm_exprs.append(expr.alias(c))
 
-    return df
+    drop_cols = [f"{c}_median" for c in cols] + [f"{c}_mad" for c in cols]
+    return joined.with_columns(norm_exprs).drop(drop_cols)
 
 
-def process_cs_rank_norm(df: pl.DataFrame, names: list[str]) -> pl.DataFrame:
-    """Cross-sectional rank normalization"""
-    _df: pl.DataFrame = df.fill_nan(None)
-
-    _df = _df.with_columns([
-        ((pl.col(col).rank("average").over("datetime") / pl.col("datetime").count().over("datetime")) - 0.5) * 3.46
-        for col in names
-    ])
-
-    df = df.with_columns([
-        _df[col].alias(col) for col in names
-    ])
-
-    return df
+def process_cs_rank_norm(lf: pl.LazyFrame, names: list[str]) -> pl.LazyFrame:
+    exprs = [
+        ((pl.col(c).rank("average").over("datetime") / pl.count().over("datetime")) - 0.5) * 3.46
+        for c in names
+    ]
+    return lf.with_columns(exprs)

@@ -2,9 +2,10 @@ import time
 from datetime import datetime
 from typing import cast
 from collections.abc import Callable
-from multiprocessing import get_context
-from multiprocessing.context import BaseContext
-
+from joblib import Parallel, delayed
+from tqdm_joblib import tqdm_joblib
+import os
+import psutil
 import polars as pl
 import pandas as pd
 from tqdm import tqdm
@@ -14,7 +15,7 @@ import pickle
 from pathlib import Path
 from ..logger import logger
 from .utility import to_datetime, Segment, FeatProxy
-
+import gc
 
 class AlphaDataset:
     """Alpha dataset template class"""
@@ -43,8 +44,15 @@ class AlphaDataset:
         # 分段缓存（统一）
         self.segment_data: dict[Segment, pl.DataFrame] = {}
 
-        # 处理器统一（用于 infer/learn）
-        self.learn_processors: list = []
+        # 处理器统一（用于 lazy infer/learn）
+        self.learn_processors: list[Callable[[pl.LazyFrame], pl.LazyFrame]] = []
+
+        # collect 开关：默认流式
+        self.collect_engine: str = "streaming"
+
+    def set_collect_engine(self, engine: str) -> None:
+        """Set collect engine, e.g., 'streaming', 'gpu'"""
+        self.collect_engine = engine
 
     def add_feature(
         self,
@@ -63,15 +71,16 @@ class AlphaDataset:
     def select_columns(self) -> list[str]:
         feature_cols: list[str] = list(self.features.keys())
         label_cols: list[str] = [self.label_feature[0]] if self.label_feature else []
-        return ["datetime", "vt_symbol","close"]+ feature_cols + label_cols
+        return ["datetime", "vt_symbol"]+ feature_cols + label_cols
 
     def add_processor(
-        self, processor: Callable[[pl.DataFrame], None]
+        self, processor: Callable[[pl.LazyFrame], pl.LazyFrame]
     ) -> None:
+        """Register a lazy processor: LazyFrame -> LazyFrame"""
         self.learn_processors.append(processor)
 
-    def prepare_data(
-        self,  max_workers: int=4
+    def prepare_features(
+        self,  max_workers: int=4, batch_size: int = 8, defer_processing: bool = True
     ) -> None:
         """
         Generate required data once, then cache per segment to avoid duplication.
@@ -79,9 +88,13 @@ class AlphaDataset:
         - 按元属性选择列生成 raw_df（键列 + 特征 + 标签）
         - 处理器链执行一次，得到 processed_df
         - processed_df 按周期切片，统一放入 segment_data（相同引用，避免重复）
+        
+        内存优化策略：
+        - 流式合并：逐批合并特征，避免累积所有LazyFrame
+        - 内存监控：动态调整批次大小，防止内存溢出
+        - 及时清理：每步完成后立即清理中间对象
         """
-        feats: list[pl.Series] = []
-    
+
         logger.info("开始计算 因子特征")
         t_feat_start = time.time()
     
@@ -90,36 +103,96 @@ class AlphaDataset:
         if self.label_feature is not None:
             tasks.append(self.label_feature)
     
-        if tasks:
-            args: list[tuple[str, FeatProxy]] = [(name, feature) for name, feature in tasks]
-            context: BaseContext = get_context("spawn")
-            with context.Pool(processes=max_workers) as pool:
-                it = pool.imap(calculate_feature, args)
-                for result in tqdm(it, total=len(args)):
-                    feats.append(result)
-    
-        t_feat_end = time.time()
-        result_df = self.df.with_columns(feats).fill_null(float("nan")).select(self.select_columns).sort(["datetime", "vt_symbol"])
+        # 初始化结果为原始数据的LazyFrame
+        result_df: pl.DataFrame = self.df
         
-        logger.info(f"因子计算完成 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
+        if tasks:
+            def _iter_batches(seq: list[tuple[str, FeatProxy]], size: int):
+                for i in range(0, len(seq), size):
+                    yield seq[i:i+size]
+            proc = psutil.Process(os.getpid())
+            total = len(tasks)
+            with tqdm_joblib(tqdm(total=total, desc="计算特征")):
+                for batch in _iter_batches(tasks, batch_size):
+                    t_batch_start = time.time()
+                    rss_before = proc.memory_info().rss
 
-        # 处理器链只执行一次，得到 processed_df
-        logger.info("开始执行处理器链")
+                    series_list = Parallel(n_jobs=max_workers, backend="loky")(
+                        delayed(calculate_feature)((name, feature),self.collect_engine) for name, feature in batch
+                    )
+                    result_df = result_df.hstack(series_list)
+                    del series_list
+                    gc.collect()
+                    
+                    rss_after = proc.memory_info().rss
+                    t_batch_end = time.time()
+
+                    logger.info(
+                        f"批次完成 | 大小: {len(batch)} | 耗时: {t_batch_end - t_batch_start:.3f}s | "
+                        f"内存变化: {(rss_after - rss_before) / 1024 / 1024:.1f}MB | RSS: {rss_after / 1024 / 1024:.1f}MB"
+                    )
+
+        t_feat_end = time.time()
+
+        # 将计算好的 result_df 持久化到磁盘，释放内存
+        cache_dir = Path("./lab/cache")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        features_file = cache_dir / "result_features.parquet"
+        result_df.write_parquet(features_file)
+        logger.info(f"原始特征已写入磁盘: {features_file} | 行数: {result_df.height}")
+
+        # 如果选择延迟处理，则在此返回，由外部调用 process_persisted_features 继续
+        if defer_processing:
+            logger.info("已持久化特征结果，延迟处理器构建与collect；请稍后调用 process_persisted_features() 继续")
+            return
+
+        logger.info(f"因子计算完成 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
+        self._preprocess_feat(result_df.lazy())
+
+    def _preprocess_feat(self,result_lf:pl.LazyFrame):
+        
+        result_lf =result_lf.with_columns(pl.col(self.features.keys()).fill_nan(float("nan")))
+        result_lf = result_lf.select(self.select_columns).sort(["datetime", "vt_symbol"])
+                # 处理器链仅构建 lazy pipeline，最终统一 collect
+        logger.info("开始构建处理器 lazy pipeline")
+        proc = psutil.Process(os.getpid())
         for i, processor in enumerate(self.learn_processors, start=1):
             t_proc_start = time.time()
-            result_df = processor(df=result_df)
+            rss_before = proc.memory_info().rss
+            result_lf = processor(lf=result_lf)
             t_proc_end = time.time()
+            rss_after = proc.memory_info().rss
             proc_name = getattr(processor, "__name__", processor.__class__.__name__)
-            logger.info(f"处理器[{i}] {proc_name} 完成 | 耗时: {t_proc_end - t_proc_start:.3f}s")
+            logger.info(
+                f"处理器[{i}] {proc_name} 已加入 lazy pipeline | 构建耗时: {t_proc_end - t_proc_start:.3f}s | "
+                f"RSS: {rss_after / 1024 / 1024:.1f}MB"
+            )
+
+        # 统一 collect（默认流式）
+        logger.info(f"开始最终 collect，engine={self.collect_engine}")
+        result_df = result_lf.collect(engine=self.collect_engine)
 
     
         # 按周期分段缓存（合并为 segment_data）
-        logger.info("按周期切片缓存处理结果")
         for seg, (start, end) in self.data_periods.items():
             seg_df = query_by_time(result_df, start, end)
             self.segment_data[seg] = seg_df
     
-        logger.info("数据准备完成：处理一次、按周期缓存、去重存储")
+        logger.info("特征准备完成")
+
+
+    def process_features(self, cache_dir: Path | None = None) -> None:
+        """
+        从磁盘继续处理已持久化的特征：构建 lazy 处理器链并统一 collect，然后按周期切片缓存。
+        默认为环境变量 `ALPHA_CACHE_DIR` 或当前目录下 `.alpha_cache`。
+        """
+        cache_dir = cache_dir or Path("./lab/cache")
+        features_file = cache_dir / "result_features.parquet"
+        if not features_file.exists():
+            raise FileNotFoundError(f"找不到已持久化的特征文件: {features_file}")
+
+        logger.info(f"从磁盘惰性扫描特征: {features_file}")
+        self._preprocess_feat(pl.scan_parquet(features_file))
 
 
     def fetch_feat(self, segment: Segment) -> pl.DataFrame:
@@ -133,18 +206,18 @@ class AlphaDataset:
         ])
         signal: pl.DataFrame = combined_df.select(
             ["datetime", "vt_symbol", pl.col(name).alias("signal")]
-        )
+        ).sort(["datetime", "vt_symbol"])
         self.show_signal_performance(signal)
 
 
-    def show_signal_performance(self, signal: pl.DataFrame) -> None:
+    def show_signal_performance(self, signal: pl.DataFrame,quantiles=2) -> None:
         """
         Perform performance analysis for prediction signals
         """
         # Get signal start and end times
         start: datetime = cast(datetime, signal["datetime"].min())
         end: datetime = cast(datetime, signal["datetime"].max())
-
+        logger.info(f"signal period: {start} - {end}")
         # Select range
         df: pl.DataFrame = query_by_time(self.df, start, end)
 
@@ -153,7 +226,7 @@ class AlphaDataset:
         signal_df.set_index(["datetime", "vt_symbol"], inplace=True)
         signal_s: pd.Series = signal_df["signal"]
         freq: str = pd.infer_freq(signal_df.index.levels[0])
-        print(f"infer freq: {freq}")
+        logger.info(f"infer freq: {freq}")
         signal_df.index.levels[0].freq = freq
 
         # Extract price
@@ -161,10 +234,9 @@ class AlphaDataset:
             ["datetime", "vt_symbol", "close"]
         ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
-
         # Merge data
         clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
-            signal_s, price_df, max_loss=1.0, quantiles=10
+            signal_s, price_df, max_loss=1.0, quantiles=quantiles
         )
 
         # Perform analysis
@@ -172,8 +244,11 @@ class AlphaDataset:
 
     def save(self, path: Path ) -> None:
         """
-        保存到目录：仅保存分段数据为三个 parquet，元数据为 pkl。
+        保存到目录：保存元数据 pkl、原始数据 raw_df.parquet、各分段 processed parquet。
         """
+        # 确保目录存在
+        path.mkdir(parents=True, exist_ok=True)
+
         # 保存元数据（分段与 schema）
         periods: dict[str, tuple[str, str]] = {
             seg.name: period for seg, period in self.data_periods.items()
@@ -184,7 +259,11 @@ class AlphaDataset:
         }
         with open(path.joinpath("meta.pkl"), "wb") as f:
             pickle.dump(meta, f, protocol=pickle.HIGHEST_PROTOCOL)
-    
+
+        # 保存原始数据（未处理的 self.df）
+        if isinstance(self.df, pl.DataFrame) and self.df.height > 0:
+            self.df.write_parquet(path.joinpath("raw_df.parquet"))
+
         # 仅保存按周期的处理后数据，三个 parquet
         for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
             df_obj = self.segment_data.get(seg)
@@ -194,20 +273,23 @@ class AlphaDataset:
     @classmethod
     def load(cls, path: Path) -> "AlphaDataset":
         """
-        从目录加载数据集：读取元数据与每段 DataFrame（三个 parquet）。
+        从目录加载数据集：读取元数据、原始数据 raw_df.parquet（若存在）与各分段 DataFrame。
         """
         meta_file = path.joinpath("meta.pkl")
         if not meta_file.exists():
             raise FileNotFoundError(f"Dataset meta file not found: {meta_file}")
-    
+
         with open(meta_file, "rb") as f:
             meta = pickle.load(f)
-    
+
         periods: dict[str, tuple[str, str]] = meta.get("periods", {})
         train = periods.get("TRAIN", ("", ""))
         valid = periods.get("VALID", ("", ""))
         test = periods.get("TEST", ("", ""))
-    
+
+        # 原始数据文件路径
+        raw_file = path.joinpath("raw_df.parquet")
+
         # 读入各段 parquet
         segment_map: dict[Segment, pl.DataFrame] = {}
         for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
@@ -216,16 +298,19 @@ class AlphaDataset:
                 segment_map[seg] = pl.read_parquet(file)
             else:
                 segment_map[seg] = pl.DataFrame()
-    
-        # 构造 df：用三段合并（用于保持构造签名与基本功能）
-        non_empty = [segment_map[s] for s in [Segment.TRAIN, Segment.VALID, Segment.TEST] if segment_map[s].height > 0]
-        df = pl.concat(non_empty, how="diagonal_relaxed") if non_empty else pl.DataFrame()
-    
+
+        # 构造 df：优先读取原始数据；否则用三段合并（用于保持构造签名与基本功能）
+        if raw_file.exists():
+            df = pl.read_parquet(raw_file)
+        else:
+            non_empty = [segment_map[s] for s in [Segment.TRAIN, Segment.VALID, Segment.TEST] if segment_map[s].height > 0]
+            df = pl.concat(non_empty, how="diagonal_relaxed") if non_empty else pl.DataFrame()
+
         dataset = cls(df, train, valid, test)
-    
+
         # 设置统一的分段缓存
         dataset.segment_data = segment_map
-    
+
         return dataset
 
 
@@ -247,7 +332,7 @@ def query_by_time(
 
 
 def calculate_feature(
-    args: tuple[str, FeatProxy],
+    args: tuple[str, FeatProxy],engine="gpu",
 ) -> pl.Series:
     """
     计算单个特征：收集 LazyFrame 为 DataFrame，重命名为特征名，并保留键列。
@@ -256,7 +341,7 @@ def calculate_feature(
     start = time.time()
 
     name, feature = args
-    result = feature.df.collect(engine="gpu")["data"].alias(name)
+    result = feature.df.collect(engine=engine).sort(["datetime", "vt_symbol"])["data"].alias(name)
 
     end = time.time()
     print(f"Feature calculation {name} took: {end - start} seconds")

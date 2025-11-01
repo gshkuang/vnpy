@@ -41,27 +41,17 @@ def ts_max(feature: FeatProxy, window: int) -> FeatProxy:
     return FeatProxy(lf)
 
 
-def ts_argmax(feature: FeatProxy, window: int) -> FeatProxy:
+def ts_argmax(feature: FeatProxy, window: int,period) -> FeatProxy:
     """Return the index of the maximum value over a rolling window"""
-    lf = feature.df.select(
-        pl.col("datetime"),
-        pl.col("vt_symbol"),
-        pl.col("data")
-        .rolling_map(lambda s: cast(int, s.arg_max()) + 1, window)
-        .over("vt_symbol"),
-    )
+    lf = feature.df.rolling(index_column="datetime", by="vt_symbol", period=f"{window}{period}").agg(pl.col("data").arg_max().alias("data"))
+
     return FeatProxy(lf)
 
 
-def ts_argmin(feature: FeatProxy, window: int) -> FeatProxy:
+def ts_argmin(feature: FeatProxy, window: int,period) -> FeatProxy:
     """Return the index of the minimum value over a rolling window"""
-    lf = feature.df.select(
-        pl.col("datetime"),
-        pl.col("vt_symbol"),
-        pl.col("data")
-        .rolling_map(lambda s: cast(int, s.arg_min()) + 1, window)
-        .over("vt_symbol"),
-    )
+    lf = feature.df.rolling(index_column="datetime", by="vt_symbol", period=f"{window}{period}").agg(pl.col("data").arg_min().alias("data"))
+    
     return FeatProxy(lf)
 
 
@@ -73,7 +63,6 @@ def ts_rank(feature: FeatProxy, window: int,period="m") -> FeatProxy:
     - 对每个时间点 t，窗口 W_t 包含该品种在 (t - period, t] 内的观测；
     - 当前值 y_t 的百分位：rank_t = #{ y_i ∈ W_t | y_i <= y_t } / |W_t|。
     """
-    
     lf = (
         feature.df
         .sort(["vt_symbol", "datetime"])

@@ -100,13 +100,13 @@ class Alpha158(AlphaDataset):
                 )
 
             for w in windows:
-                self.add_feature(f"imax_{w}", ts_argmax(h, w) / w)
+                self.add_feature(f"imax_{w}", ts_argmax(h, w, period) / w)
 
             for w in windows:
-                self.add_feature(f"imin_{w}", ts_argmin(l, w) / w)
+                self.add_feature(f"imin_{w}", ts_argmin(l, w, period) / w)
 
             for w in windows:
-                self.add_feature(f"imxd_{w}", (ts_argmax(h, w) - ts_argmin(l, w)) / w)
+                self.add_feature(f"imxd_{w}", (ts_argmax(h, w, period) - ts_argmin(l, w, period)) / w)
 
             for w in windows:
                 self.add_feature(f"corr_{w}", ts_corr(c, ts_log(v + 1), w))
