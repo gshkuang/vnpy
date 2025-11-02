@@ -13,10 +13,10 @@ from alphalens.utils import get_clean_factor_and_forward_returns  # type: ignore
 from alphalens.tears import create_full_tear_sheet  # type: ignore
 import pickle
 from pathlib import Path
-from ..logger import logger
+from ..logger import logger,log_time_memory
 from .utility import to_datetime, Segment, FeatProxy
-import gc
-
+from .processor import process_lf_drop_na
+from .feature_pipeline import feat_norm_pipeline,save_duckdb_splits
 class AlphaDataset:
     """Alpha dataset template class"""
 
@@ -26,9 +26,11 @@ class AlphaDataset:
         train_period: tuple[str, str],
         valid_period: tuple[str, str],
         test_period: tuple[str, str],
+        lab_dir: str,
     ) -> None:
         """Constructor"""
-        self.df: pl.DataFrame = df
+        self.df: pl.DataFrame =df.unique(subset=["datetime", "vt_symbol"], keep="first").sort(["datetime", "vt_symbol"])
+        self.lab_dir: Path = Path(lab_dir)
 
         # New version
         self.data_periods: dict[Segment, tuple[str, str]] = {
@@ -80,7 +82,7 @@ class AlphaDataset:
         self.learn_processors.append(processor)
 
     def prepare_features(
-        self,  max_workers: int=4, batch_size: int = 8, defer_processing: bool = True
+        self,  batch_size: int = 100, symbol: str | None = None
     ) -> None:
         """
         Generate required data once, then cache per segment to avoid duplication.
@@ -107,92 +109,63 @@ class AlphaDataset:
         result_df: pl.DataFrame = self.df
         
         if tasks:
+            @log_time_memory
             def _iter_batches(seq: list[tuple[str, FeatProxy]], size: int):
                 for i in range(0, len(seq), size):
                     yield seq[i:i+size]
-            proc = psutil.Process(os.getpid())
-            total = len(tasks)
-            with tqdm_joblib(tqdm(total=total, desc="计算特征")):
-                for batch in _iter_batches(tasks, batch_size):
-                    t_batch_start = time.time()
-                    rss_before = proc.memory_info().rss
-
-                    series_list = Parallel(n_jobs=max_workers, backend="loky")(
-                        delayed(calculate_feature)((name, feature),self.collect_engine) for name, feature in batch
-                    )
-                    result_df = result_df.hstack(series_list)
-                    del series_list
-                    gc.collect()
-                    
-                    rss_after = proc.memory_info().rss
-                    t_batch_end = time.time()
-
-                    logger.info(
-                        f"批次完成 | 大小: {len(batch)} | 耗时: {t_batch_end - t_batch_start:.3f}s | "
-                        f"内存变化: {(rss_after - rss_before) / 1024 / 1024:.1f}MB | RSS: {rss_after / 1024 / 1024:.1f}MB"
-                    )
+            for batch in _iter_batches(tasks, batch_size):
+                series_list = [calculate_feature((name, feature),self.collect_engine) for name, feature in batch] 
+                result_df = result_df.hstack(series_list)
 
         t_feat_end = time.time()
 
         # 将计算好的 result_df 持久化到磁盘，释放内存
-        cache_dir = Path("./lab/cache")
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        features_file = cache_dir / "result_features.parquet"
-        result_df.write_parquet(features_file)
+        result_lf =result_df.lazy().with_columns(pl.col(self.features.keys()).fill_nan(float("nan")))
+        result_lf = result_lf.select(self.select_columns).sort(["datetime", "vt_symbol"])
+        result_lf=process_lf_drop_na(result_lf)
+        
+        feat_dir =self.lab_dir.joinpath("feat")
+        feat_dir.mkdir(parents=True, exist_ok=True)
+        features_file =  feat_dir.joinpath( symbol+".parquet")
+        result_lf.sink_parquet(features_file)
         logger.info(f"原始特征已写入磁盘: {features_file} | 行数: {result_df.height}")
 
-        # 如果选择延迟处理，则在此返回，由外部调用 process_persisted_features 继续
-        if defer_processing:
-            logger.info("已持久化特征结果，延迟处理器构建与collect；请稍后调用 process_persisted_features() 继续")
-            return
+        logger.info(f"持久化特征结果 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
 
-        logger.info(f"因子计算完成 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
-        self._preprocess_feat(result_df.lazy())
+    def process_features(self):
+        feat_norm_pipeline(
+            feat_dir=self.lab_dir.joinpath("feat"),
+            stats_dir=self.lab_dir.joinpath("stats"),
+            out_dir=self.lab_dir.joinpath("feat_norm"),
+            fit_start=to_datetime(self.data_periods[Segment.TRAIN][0]),
+            fit_end=to_datetime(self.data_periods[Segment.TRAIN][1]),
+        )
 
-    def _preprocess_feat(self,result_lf:pl.LazyFrame):
+        save_duckdb_splits(
+            feat_dir=self.lab_dir.joinpath("feat_norm"),
+            out_dir=self.lab_dir.joinpath("splits"),
+            train_period=self.data_periods[Segment.TRAIN],
+            valid_period=self.data_periods[Segment.VALID],
+            test_period=self.data_periods[Segment.TEST],
+            shuffle=True,
+            seed=42,
+        )
         
-        result_lf =result_lf.with_columns(pl.col(self.features.keys()).fill_nan(float("nan")))
-        result_lf = result_lf.select(self.select_columns).sort(["datetime", "vt_symbol"])
+    def _preprocess_feat(self,result_lf:pl.LazyFrame):
                 # 处理器链仅构建 lazy pipeline，最终统一 collect
         logger.info("开始构建处理器 lazy pipeline")
-        proc = psutil.Process(os.getpid())
         for i, processor in enumerate(self.learn_processors, start=1):
-            t_proc_start = time.time()
-            rss_before = proc.memory_info().rss
             result_lf = processor(lf=result_lf)
-            t_proc_end = time.time()
-            rss_after = proc.memory_info().rss
-            proc_name = getattr(processor, "__name__", processor.__class__.__name__)
-            logger.info(
-                f"处理器[{i}] {proc_name} 已加入 lazy pipeline | 构建耗时: {t_proc_end - t_proc_start:.3f}s | "
-                f"RSS: {rss_after / 1024 / 1024:.1f}MB"
-            )
-
         # 统一 collect（默认流式）
         logger.info(f"开始最终 collect，engine={self.collect_engine}")
         result_df = result_lf.collect(engine=self.collect_engine)
 
-    
         # 按周期分段缓存（合并为 segment_data）
         for seg, (start, end) in self.data_periods.items():
             seg_df = query_by_time(result_df, start, end)
             self.segment_data[seg] = seg_df
-    
+
         logger.info("特征准备完成")
-
-
-    def process_features(self, cache_dir: Path | None = None) -> None:
-        """
-        从磁盘继续处理已持久化的特征：构建 lazy 处理器链并统一 collect，然后按周期切片缓存。
-        默认为环境变量 `ALPHA_CACHE_DIR` 或当前目录下 `.alpha_cache`。
-        """
-        cache_dir = cache_dir or Path("./lab/cache")
-        features_file = cache_dir / "result_features.parquet"
-        if not features_file.exists():
-            raise FileNotFoundError(f"找不到已持久化的特征文件: {features_file}")
-
-        logger.info(f"从磁盘惰性扫描特征: {features_file}")
-        self._preprocess_feat(pl.scan_parquet(features_file))
 
 
     def fetch_feat(self, segment: Segment) -> pl.DataFrame:
@@ -271,11 +244,12 @@ class AlphaDataset:
                 df_obj.write_parquet(path.joinpath(f"segment_{seg.name.lower()}.parquet"))
 
     @classmethod
-    def load(cls, path: Path) -> "AlphaDataset":
+    def load(cls, path: Path,name:str) -> "AlphaDataset":
         """
         从目录加载数据集：读取元数据、原始数据 raw_df.parquet（若存在）与各分段 DataFrame。
         """
-        meta_file = path.joinpath("meta.pkl")
+        datapath = path.joinpath("dataset",name)
+        meta_file = datapath.joinpath("meta.pkl")
         if not meta_file.exists():
             raise FileNotFoundError(f"Dataset meta file not found: {meta_file}")
 
@@ -288,12 +262,12 @@ class AlphaDataset:
         test = periods.get("TEST", ("", ""))
 
         # 原始数据文件路径
-        raw_file = path.joinpath("raw_df.parquet")
+        raw_file = datapath.joinpath("raw_df.parquet")
 
         # 读入各段 parquet
         segment_map: dict[Segment, pl.DataFrame] = {}
         for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
-            file = path.joinpath(f"segment_{seg.name.lower()}.parquet")
+            file = datapath.joinpath(f"segment_{seg.name.lower()}.parquet")
             if file.exists():
                 segment_map[seg] = pl.read_parquet(file)
             else:
@@ -306,7 +280,7 @@ class AlphaDataset:
             non_empty = [segment_map[s] for s in [Segment.TRAIN, Segment.VALID, Segment.TEST] if segment_map[s].height > 0]
             df = pl.concat(non_empty, how="diagonal_relaxed") if non_empty else pl.DataFrame()
 
-        dataset = cls(df, train, valid, test)
+        dataset = cls(df, train, valid, test,path)
 
         # 设置统一的分段缓存
         dataset.segment_data = segment_map
@@ -331,6 +305,7 @@ def query_by_time(
     return df
 
 
+
 def calculate_feature(
     args: tuple[str, FeatProxy],engine="gpu",
 ) -> pl.Series:
@@ -344,6 +319,6 @@ def calculate_feature(
     result = feature.df.collect(engine=engine).sort(["datetime", "vt_symbol"])["data"].alias(name)
 
     end = time.time()
-    print(f"Feature calculation {name} took: {end - start} seconds")
+    #print(f"Feature calculation {name} took: {end - start} seconds")
 
     return result

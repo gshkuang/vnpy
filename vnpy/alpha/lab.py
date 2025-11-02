@@ -244,6 +244,8 @@ class AlphaLab:
             dfs.append(df)
 
         # Concatenate results
+        if not dfs:
+            return None
         result_df: pl.DataFrame = pl.concat(dfs)
         return result_df
 
@@ -410,8 +412,8 @@ class AlphaLab:
 
     def load_dataset(self, name: str) -> AlphaDataset | None:
         """Load dataset"""
-        dir_path: Path = self.dataset_path.joinpath(name)
-        return AlphaDataset.load(dir_path)
+        #dir_path: Path = self.dataset_path.joinpath(name)
+        return AlphaDataset.load(self.lab_path,name)
 
     def remove_dataset(self, name: str) -> bool:
         """Remove dataset"""

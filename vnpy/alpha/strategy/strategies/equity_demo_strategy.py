@@ -119,6 +119,8 @@ class EquityDemoStrategy(AlphaStrategy):
             )  # Calculate investment amount per contract
 
             for vt_symbol in buy_symbols:
+                if vt_symbol not in bars:
+                    continue
                 buy_price: float = bars[
                     vt_symbol
                 ].close_price  # Get current price of the contract

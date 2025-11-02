@@ -4,20 +4,20 @@ import polars as pl
 from .utility import to_datetime
 
 
-def process_drop_na(lf: pl.LazyFrame, names: list[str] | None = None) -> pl.LazyFrame:
+def process_lf_drop_na(lf: pl.LazyFrame, names: list[str] | None = None) -> pl.LazyFrame:
     """Remove rows with missing values (lazy in/out)."""
     if names is None:
-        names = lf.collect_schema().names()[2:-1]
+        names = lf.collect_schema().names()[2:]
     return lf.with_columns(pl.col(names).fill_nan(None)).drop_nulls(subset=names)
 
 
-def process_fill_na(lf: pl.LazyFrame, fill_value: float, fill_label: bool = True) -> pl.LazyFrame:
+def process_lf_fill_na(lf: pl.LazyFrame, fill_value: float, fill_label: bool = False) -> pl.LazyFrame:
     """Fill missing values (lazy in/out)."""
     target = pl.all() if fill_label else pl.col(lf.collect_schema().names()[2:-1])
     return lf.with_columns(target.fill_null(fill_value).fill_nan(fill_value))
 
 
-def process_cs_norm(
+def process_lf_cs_norm(
     lf: pl.LazyFrame,
     names: list[str],
     method: str         # robust/zscore
@@ -67,7 +67,7 @@ def process_cs_norm(
         return with_dev.with_columns(exprs).drop(drop_cols)
 
 
-def process_robust_zscore_norm(
+def process_lf_robust_zscore_norm(
     lf: pl.LazyFrame,
     fit_start_time: datetime | str | None = None,
     fit_end_time: datetime | str | None = None,
@@ -106,9 +106,53 @@ def process_robust_zscore_norm(
     return joined.with_columns(norm_exprs).drop(drop_cols)
 
 
-def process_cs_rank_norm(lf: pl.LazyFrame, names: list[str]) -> pl.LazyFrame:
+def process_lf_cs_rank_norm(lf: pl.LazyFrame, names: list[str]) -> pl.LazyFrame:
     exprs = [
         ((pl.col(c).rank("average").over("datetime") / pl.count().over("datetime")) - 0.5) * 3.46
         for c in names
     ]
     return lf.with_columns(exprs)
+
+
+def process_stats_ts_norm(
+    lf: pl.LazyFrame,
+    stats_lf: pl.LazyFrame,
+    names: list[str],
+    method: str  # robust/zscore
+) -> pl.LazyFrame:
+    joined = lf.join(stats_lf, how="cross")
+    exprs: list[pl.Expr] = []
+    if method == "zscore":
+        for c in names:
+            e = (pl.col(c) - pl.col(f"{c}_mean")) / (pl.col(f"{c}_std") + 1e-12)
+            exprs.append(e.clip(-3.0, 3.0).alias(c))
+        drop_cols = [f"{c}_mean" for c in names] + [f"{c}_std" for c in names]
+    else:
+        for c in names:
+            std_like = pl.col(f"{c}_mad") * 1.4826 + 1e-12
+            e = (pl.col(c) - pl.col(f"{c}_median")) / std_like
+            exprs.append(e.clip(-3.0, 3.0).alias(c))
+        drop_cols = [f"{c}_median" for c in names] + [f"{c}_mad" for c in names]
+    return joined.with_columns(exprs).drop(drop_cols)
+
+
+def process_stats_cs_norm(
+    lf: pl.LazyFrame,
+    cs_stats_lf: pl.LazyFrame,
+    names: list[str],
+    method: str  # robust/zscore
+) -> pl.LazyFrame:
+    joined = lf.join(cs_stats_lf, on="datetime", how="left")
+    exprs: list[pl.Expr] = []
+    if method == "zscore":
+        for c in names:
+            e = (pl.col(c) - pl.col(f"{c}_mean")) / (pl.col(f"{c}_std") + 1e-12)
+            exprs.append(e.clip(-3.0, 3.0).alias(c))
+        drop_cols = [f"{c}_mean" for c in names] + [f"{c}_std" for c in names]
+    else:
+        for c in names:
+            std_like = pl.col(f"{c}_mad") * 1.4826 + 1e-12
+            e = (pl.col(c) - pl.col(f"{c}_median")) / std_like
+            exprs.append(e.clip(-3.0, 3.0).alias(c))
+        drop_cols = [f"{c}_median" for c in names] + [f"{c}_mad" for c in names]
+    return joined.with_columns(exprs).drop(drop_cols)

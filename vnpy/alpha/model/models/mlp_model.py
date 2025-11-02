@@ -2,6 +2,8 @@ import copy
 from collections import defaultdict
 from typing import Literal, cast
 
+import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -410,6 +412,83 @@ class MlpModel(AlphaModel):
         data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
 
         return cast(np.ndarray, self._predict_batch(torch.Tensor(data)))
+
+    # ===== 基于 Parquet 切分的训练/预测 =====
+    def fit_splits(self, splits_dir: str | os.PathLike) -> None:
+        """从保存的切分文件 `train.parquet` 与 `valid.parquet` 进行训练。"""
+        splits_path = Path(splits_dir)
+        train_path = splits_path / "train.parquet"
+        valid_path = splits_path / "valid.parquet"
+        if not train_path.exists() or not valid_path.exists():
+            raise FileNotFoundError("train.parquet 或 valid.parquet 不存在于切分目录")
+
+        df_train = pd.read_parquet(train_path)
+        df_valid = pd.read_parquet(valid_path)
+
+        # 统一提取特征与标签（去掉 label，其他列全部作为特征）
+        feat_cols = [c for c in df_train.columns if c not in ["datetime", "vt_symbol", "label"]]
+        print(df_train.shape, df_valid.shape)
+        df_train=df_train.dropna()
+        print(df_train.dropna().shape)
+        print(df_valid.head())
+        print(df_valid.dropna().shape)
+        x_train = torch.from_numpy(df_train[feat_cols].values).float().to(self.device)
+        y_train = torch.from_numpy(df_train["label"].values.reshape(-1)).float().to(self.device)
+        x_valid = torch.from_numpy(df_valid[feat_cols].values).float().to(self.device)
+        y_valid = torch.from_numpy(df_valid["label"].values.reshape(-1)).float().to(self.device)
+
+        self.feature_names = feat_cols
+
+        train_valid_data: dict[str, dict] = defaultdict(dict)
+        train_valid_data["x"][Segment.TRAIN] = x_train
+        train_valid_data["y"][Segment.TRAIN] = y_train
+        train_valid_data["x"][Segment.VALID] = x_valid
+        train_valid_data["y"][Segment.VALID] = y_valid
+
+        evaluation_results: dict = {Segment.TRAIN: [], Segment.VALID: []}
+
+        early_stop_count: int = 0
+        train_loss: float = 0
+        best_valid_score: float = np.inf
+        best_params = None
+
+        train_samples: int = train_valid_data["y"][Segment.TRAIN].shape[0]
+        logger.info(f"开始训练模型, 总样本数: {train_samples}")
+
+        for step in range(1, self.n_epochs + 1):
+            if early_stop_count >= self.early_stop_rounds:
+                logger.info("达到早停条件,训练结束")
+                break
+
+            batch_loss = self._train_step(train_valid_data, train_samples)
+            train_loss += batch_loss
+
+            if step % 10 == 0:
+                logger.info(f"Step {step}/{self.n_epochs}, Batch Loss: {batch_loss:.6f}")
+
+            if step % self.eval_steps == 0 or step == self.n_epochs:
+                early_stop_count, best_valid_score, best_params = self._evaluate_step(
+                    train_valid_data,
+                    evaluation_results,
+                    step,
+                    train_loss,
+                    early_stop_count,
+                    best_valid_score,
+                )
+                train_loss = 0
+
+        if best_params:
+            self.model.load_state_dict(best_params)
+        self.fitted = True
+
+    def predict_splits(self, parquet_path: str | os.PathLike) -> np.ndarray:
+        """从保存的切分文件（如 `test.parquet`）读取特征并预测。"""
+        if not self.fitted:
+            raise ValueError("model is not fitted yet!")
+        df = pd.read_parquet(parquet_path)
+        feat_cols = [c for c in df.columns if c not in ["datetime", "vt_symbol", "label"]]
+        data = torch.from_numpy(df[feat_cols].values).float()
+        return cast(np.ndarray, self._predict_batch(data))
 
     def _check_tensor_nan(self, tensor: torch.Tensor, name: str) -> None:
         """

@@ -12,7 +12,7 @@ class FeatProxy:
         """Constructor accepting eager DataFrame or LazyFrame"""
         lf: pl.LazyFrame = df.lazy() if isinstance(df, pl.DataFrame) else df
         # ensure last column is named as data
-        last_name: str = lf.columns[-1]
+        last_name: str = lf.collect_schema().names()[-1]
         self.df: pl.LazyFrame = lf.rename({last_name: "data"})
 
         # Note: numeric expressions should place variables before numbers, e.g. a * 2

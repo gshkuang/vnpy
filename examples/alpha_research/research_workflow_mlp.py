@@ -10,13 +10,10 @@ from functools import partial
 import polars as pl
 
 from vnpy.alpha import AlphaLab, Segment, AlphaDataset, AlphaModel, logger, to_datetime
+from vnpy.alpha.dataset.feature_pipeline import save_duckdb_splits
+from pathlib import Path
 from vnpy.trader.constant import Interval
-from vnpy.alpha.dataset import (
-    process_drop_na,
-    process_robust_zscore_norm,
-    process_fill_na,
-    process_cs_rank_norm,
-)
+# 新流程使用 AlphaDataset 的归一化管道，无需逐个添加处理器
 from vnpy.alpha.dataset.datasets.alpha_158 import Alpha158
 
 
@@ -27,49 +24,14 @@ START: str = "2020-01-01"
 END: str = "2025-09-03"
 INTERVAL: Interval = Interval.MINUTE
 EXTENDED_DAYS: int = 100
-LAB_DIR = "./lab/crypto_1m"
+LAB_DIR = "/home/lai/test_v1/lab/crypto_1m"
 TRAIN_PERIOD: tuple[str, str] = ("2020-01-01", "2023-12-31")
 VALID_PERIOD: tuple[str, str] = ("2024-01-01", "2024-12-31")
 TEST_PERIOD: tuple[str, str] = ("2025-01-01", "2025-09-03")
 
-
-def build_dataset(lab: AlphaLab) -> AlphaDataset:
-    """加载数据并构建数据集，包含特征与预处理器。"""
-    # 加载成分股代码
-    component_symbols: list[str] = lab.load_component_symbols(INDEX_SYMBOL, START, END)
-    logger.info(f"成分股数量: {len(component_symbols)}")
-    # 为演示与开发限定数量（可按需调整）
-    component_symbols = component_symbols[:10]
-
-    # 加载行情数据
-    df: pl.DataFrame = lab.load_bar_df(component_symbols, INTERVAL, START, END, EXTENDED_DAYS)
-    df = df.unique(subset=["datetime", "vt_symbol"], keep="first").sort(["datetime", "vt_symbol"])
-    logger.info(f"原始数据形状: {df.shape}")
-
-    # 创建数据集对象
-    dataset: AlphaDataset = Alpha158(
-        df,
-        train_period=TRAIN_PERIOD,
-        valid_period=VALID_PERIOD,
-        test_period=TEST_PERIOD,
-        period=INTERVAL.value.lower()[-1:],
-    )
-
-    # 添加数据预处理器
-    fit_start_time: datetime = to_datetime(TRAIN_PERIOD[0])
-    fit_end_time: datetime = to_datetime(TRAIN_PERIOD[1])
-    dataset.add_processor(partial(process_robust_zscore_norm, fit_start_time=fit_start_time, fit_end_time=fit_end_time))
-    dataset.add_processor(partial(process_fill_na, fill_value=0, fill_label=False))
-    dataset.add_processor(partial(process_drop_na, names=["label"]))
-    dataset.add_processor(partial(process_cs_rank_norm, names=["label"]))
-
-    return dataset
-
-
-def train_model(lab: AlphaLab, dataset: AlphaDataset) -> AlphaModel:
-    """训练 MLP 模型并保存。"""
+def train_model(lab: AlphaLab, splits_dir: str) -> AlphaModel:
+    """使用保存的 Parquet 切分直接训练 MLP 模型并保存。"""
     from vnpy.alpha.model.models.mlp_model import MlpModel
-    import numpy as np
 
     kwargs = {
         "input_size": 158,
@@ -84,31 +46,19 @@ def train_model(lab: AlphaLab, dataset: AlphaDataset) -> AlphaModel:
     }
 
     model: AlphaModel = MlpModel(**kwargs)
-
-    # 观察训练集形状
-    df_train = dataset.fetch_feat(Segment.TRAIN)
-    logger.info(f"TRAIN shape: {df_train.shape}")
-
-    # 训练
-    model.fit(dataset)
+    model.fit_splits(splits_dir)
     model.detail()
 
-    # 保存模型
     lab.save_model(NAME, model)
     return model
 
 
-def predict_and_save_signal(lab: AlphaLab, model: AlphaModel, dataset: AlphaDataset) -> pl.DataFrame:
-    """在测试集上预测并保存信号。"""
-    import numpy as np
-
-    pre: np.ndarray = model.predict(dataset, Segment.TEST)
-    df_t: pl.DataFrame = dataset.fetch_feat(Segment.TEST)
-    df_t = df_t.with_columns(pl.Series(pre).alias("signal"))
-    signal: pl.DataFrame = df_t["datetime", "vt_symbol", "signal"]
-
-    # 绩效检查与保存
-    #dataset.show_signal_performance(signal)
+def predict_and_save_signal(lab: AlphaLab, model: AlphaModel, test_parquet: str) -> pl.DataFrame:
+    """在测试切分上预测并保存信号。切分文件不含键列，返回仅包含预测值。"""
+    import pandas as pd
+    pre = model.predict_splits(test_parquet)
+    df = pd.read_parquet(test_parquet)
+    signal = pl.DataFrame({"signal": pre})
     lab.save_signal(NAME, signal)
     return signal
 
@@ -143,17 +93,47 @@ def run_backtesting(lab: AlphaLab, signal: pl.DataFrame, vt_symbols: list[str]) 
 def main() -> None:
 
     lab: AlphaLab = AlphaLab(LAB_DIR)
+    """加载数据并构建数据集，包含特征与预处理器。"""
+    # 加载成分股代码
+    component_symbols: list[str] = lab.load_component_symbols(INDEX_SYMBOL, START, END)
+    logger.info(f"成分股数量: {len(component_symbols)}")
+    # 为演示与开发限定数量（可按需调整）
+    component_symbols = component_symbols[:300]
+    for i,symbol in enumerate(component_symbols):
+        df: pl.DataFrame|None=lab.load_bar_df([symbol], INTERVAL, START, END, EXTENDED_DAYS)
+        if df is None:
+            continue
+        
+        logger.info(f"{i+1}/{len(component_symbols)} {symbol}原始数据形状: {df.shape}")
 
-    # 构建并准备数据集
-    dataset = build_dataset(lab)
-    #dataset.prepare_features(max_workers=2)
-    dataset.process_features()
-    # 缓存数据集到文件
-    lab.save_dataset(NAME, dataset)
-    # # 训练模型
-    # model = train_model(lab, dataset)
-    # # 预测与保存信号
-    # signal = predict_and_save_signal(lab, model, dataset)
+        # 创建数据集对象
+        dataset: AlphaDataset = Alpha158(
+            df,
+            train_period=TRAIN_PERIOD,
+            valid_period=VALID_PERIOD,
+            test_period=TEST_PERIOD,
+            period=INTERVAL.value.lower()[-1:],
+            lab_dir=LAB_DIR,
+        )
+
+        #写入原始特征到磁盘
+        dataset.prepare_features(symbol=symbol)
+    # df: pl.DataFrame|None=lab.load_bar_df(component_symbols, INTERVAL, START, END, EXTENDED_DAYS)
+    # dataset: AlphaDataset = Alpha158(
+    #     df,
+    #     train_period=TRAIN_PERIOD,
+    #     valid_period=VALID_PERIOD,
+    #     test_period=TEST_PERIOD,
+    #     period=INTERVAL.value.lower()[-1:],
+    #     lab_dir=LAB_DIR,
+    # )
+    # dataset.process_features()
+
+
+    # 训练与预测
+    #model = train_model(lab, str(LAB_DIR+ "/splits"))
+    # signal = predict_and_save_signal(lab, model, LAB_DIR+ "/splits/test.parquet")
+    # print(signal.head())
     # # 加载成分股代码用于回测
     # vt_symbols: list[str] = lab.load_component_symbols(INDEX_SYMBOL, START, END)[:10]
     # run_backtesting(lab, signal, vt_symbols)

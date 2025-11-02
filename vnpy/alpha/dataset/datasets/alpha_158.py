@@ -25,6 +25,7 @@ class Alpha158(AlphaDataset):
         valid_period: tuple[str, str],
         test_period: tuple[str, str],
         period: str = "m",
+        lab_dir: str="",
         ) -> None:
             """Constructor"""
             super().__init__(
@@ -32,6 +33,7 @@ class Alpha158(AlphaDataset):
                 train_period=train_period,
                 valid_period=valid_period,
                 test_period=test_period,
+                lab_dir=lab_dir,
             )
 
 
