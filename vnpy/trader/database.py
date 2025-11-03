@@ -1,15 +1,14 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from types import ModuleType
 from dataclasses import dataclass
+from datetime import datetime
 from importlib import import_module
+from types import ModuleType
 
-from .constant import Interval, Exchange
+from .constant import Exchange, Interval
+from .locale import _
 from .object import BarData, TickData
 from .setting import SETTINGS
 from .utility import ZoneInfo
-from .locale import _
-
 
 DB_TZ = ZoneInfo(SETTINGS["database.timezone"])
 
@@ -59,14 +58,12 @@ class BaseDatabase(ABC):
         """
         Save bar data into database.
         """
-        pass
 
     @abstractmethod
     def save_tick_data(self, ticks: list[TickData], stream: bool = False) -> bool:
         """
         Save tick data into database.
         """
-        pass
 
     @abstractmethod
     def load_bar_data(
@@ -75,62 +72,45 @@ class BaseDatabase(ABC):
         exchange: Exchange,
         interval: Interval,
         start: datetime,
-        end: datetime
+        end: datetime,
     ) -> list[BarData]:
         """
         Load bar data from database.
         """
-        pass
 
     @abstractmethod
     def load_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        start: datetime,
-        end: datetime
+        self, symbol: str, exchange: Exchange, start: datetime, end: datetime
     ) -> list[TickData]:
         """
         Load tick data from database.
         """
-        pass
 
     @abstractmethod
     def delete_bar_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        interval: Interval
+        self, symbol: str, exchange: Exchange, interval: Interval
     ) -> int:
         """
         Delete all bar data with given symbol + exchange + interval.
         """
-        pass
 
     @abstractmethod
-    def delete_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange
-    ) -> int:
+    def delete_tick_data(self, symbol: str, exchange: Exchange) -> int:
         """
         Delete all tick data with given symbol + exchange.
         """
-        pass
 
     @abstractmethod
     def get_bar_overview(self) -> list[BarOverview]:
         """
         Return bar data avaible in database.
         """
-        pass
 
     @abstractmethod
     def get_tick_overview(self) -> list[TickOverview]:
         """
         Return tick data avaible in database.
         """
-        pass
 
 
 database: BaseDatabase | None = None

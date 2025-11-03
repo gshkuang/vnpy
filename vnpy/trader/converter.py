@@ -1,14 +1,9 @@
 from copy import copy
 from typing import TYPE_CHECKING
 
-from .object import (
-    ContractData,
-    OrderData,
-    TradeData,
-    PositionData,
-    OrderRequest
-)
-from .constant import Direction, Offset, Exchange
+from .constant import Direction, Exchange, Offset
+from .object import (ContractData, OrderData, OrderRequest, PositionData,
+                     TradeData)
 
 if TYPE_CHECKING:
     from .engine import OmsEngine
@@ -135,8 +130,7 @@ class PositionHolding:
                     self.short_td_frozen += frozen
 
                     if self.short_td_frozen > self.short_td:
-                        self.short_yd_frozen += (self.short_td_frozen
-                                                 - self.short_td)
+                        self.short_yd_frozen += self.short_td_frozen - self.short_td
                         self.short_td_frozen = self.short_td
             elif order.direction == Direction.SHORT:
                 if order.offset == Offset.CLOSETODAY:
@@ -147,8 +141,7 @@ class PositionHolding:
                     self.long_td_frozen += frozen
 
                     if self.long_td_frozen > self.long_td:
-                        self.long_yd_frozen += (self.long_td_frozen
-                                                - self.long_td)
+                        self.long_yd_frozen += self.long_td_frozen - self.long_td
                         self.long_td_frozen = self.long_td
 
         self.sum_pos_frozen()
@@ -365,10 +358,7 @@ class OffsetConverter:
         return holding
 
     def convert_order_request(
-        self,
-        req: OrderRequest,
-        lock: bool,
-        net: bool = False
+        self, req: OrderRequest, lock: bool, net: bool = False
     ) -> list[OrderRequest]:
         """"""
         if not self.is_convert_required(req.vt_symbol):

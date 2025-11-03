@@ -1,10 +1,10 @@
-from types import ModuleType
 from collections.abc import Callable
 from importlib import import_module
+from types import ModuleType
 
-from .object import HistoryRequest, TickData, BarData
-from .setting import SETTINGS
 from .locale import _
+from .object import BarData, HistoryRequest, TickData
+from .setting import SETTINGS
 
 
 class BaseDatafeed:
@@ -18,14 +18,18 @@ class BaseDatafeed:
         """
         return False
 
-    def query_bar_history(self, req: HistoryRequest, output: Callable = print) -> list[BarData]:
+    def query_bar_history(
+        self, req: HistoryRequest, output: Callable = print
+    ) -> list[BarData]:
         """
         Query history bar data.
         """
         output(_("查询K线数据失败：没有正确配置数据服务"))
         return []
 
-    def query_tick_history(self, req: HistoryRequest, output: Callable = print) -> list[TickData]:
+    def query_tick_history(
+        self, req: HistoryRequest, output: Callable = print
+    ) -> list[TickData]:
         """
         Query history tick data.
         """
@@ -63,6 +67,10 @@ def get_datafeed() -> BaseDatafeed:
         except ModuleNotFoundError:
             datafeed = BaseDatafeed()
 
-            print(_("无法加载数据服务模块，请运行 pip install {} 尝试安装").format(module_name))
+            print(
+                _("无法加载数据服务模块，请运行 pip install {} 尝试安装").format(
+                    module_name
+                )
+            )
 
     return datafeed

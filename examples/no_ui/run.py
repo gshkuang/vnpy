@@ -1,17 +1,16 @@
 import multiprocessing
 import sys
-from time import sleep
 from datetime import datetime, time
+from time import sleep
+
+from vnpy_ctastrategy import CtaEngine, CtaStrategyApp
+from vnpy_ctastrategy.base import EVENT_CTA_LOG
+from vnpy_ctp import CtpGateway
 
 from vnpy.event import EventEngine
-from vnpy.trader.setting import SETTINGS
-from vnpy.trader.engine import MainEngine, LogEngine
+from vnpy.trader.engine import LogEngine, MainEngine
 from vnpy.trader.logger import INFO, logger
-
-from vnpy_ctp import CtpGateway
-from vnpy_ctastrategy import CtaStrategyApp, CtaEngine
-from vnpy_ctastrategy.base import EVENT_CTA_LOG
-
+from vnpy.trader.setting import SETTINGS
 
 SETTINGS["log.active"] = True
 SETTINGS["log.level"] = INFO
@@ -26,7 +25,7 @@ ctp_setting = {
     "行情服务器": "",
     "产品名称": "",
     "授权编码": "",
-    "产品信息": ""
+    "产品信息": "",
 }
 
 
@@ -65,7 +64,7 @@ def run_child() -> None:
     cta_engine: CtaEngine = main_engine.add_app(CtaStrategyApp)
     logger.info("主引擎创建成功")
 
-    log_engine: LogEngine = main_engine.get_engine("log")       # type: ignore
+    log_engine: LogEngine = main_engine.get_engine("log")  # type: ignore
     event_engine.register(EVENT_CTA_LOG, log_engine.process_log_event)
     logger.info("注册日志事件监听")
 
@@ -78,7 +77,7 @@ def run_child() -> None:
     logger.info("CTA策略初始化完成")
 
     cta_engine.init_all_strategies()
-    sleep(60)   # Leave enough time to complete strategy initialization
+    sleep(60)  # Leave enough time to complete strategy initialization
     logger.info("CTA策略全部初始化")
 
     cta_engine.start_all_strategies()

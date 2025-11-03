@@ -1,13 +1,14 @@
 from time import sleep
 
-from vnpy.event import EventEngine, Event
-from vnpy.trader.engine import MainEngine
-from vnpy.trader.ui import MainWindow, create_qapp
-from vnpy.trader.event import EVENT_LOG
-from vnpy.trader.object import LogData
 from vnpy_ctp import CtpGateway
 from vnpy_rpcservice import RpcServiceApp
-from vnpy_rpcservice.rpc_service.engine import RpcEngine, EVENT_RPC_LOG
+from vnpy_rpcservice.rpc_service.engine import EVENT_RPC_LOG, RpcEngine
+
+from vnpy.event import Event, EventEngine
+from vnpy.trader.engine import MainEngine
+from vnpy.trader.event import EVENT_LOG
+from vnpy.trader.object import LogData
+from vnpy.trader.ui import MainWindow, create_qapp
 
 
 def main_ui() -> None:
@@ -52,7 +53,7 @@ def main_terminal() -> None:
         "行情服务器": "180.168.146.187:10111",
         "产品名称": "simnow_client_test",
         "授权编码": "0000000000000000",
-        "产品信息": ""
+        "产品信息": "",
     }
     main_engine.connect(setting, "CTP")
     sleep(10)

@@ -1,15 +1,11 @@
 # 加载模块
-import os
 import glob
-import pandas as pd
-from datetime import datetime
+import os
 import re
-from tqdm import tqdm
+from datetime import datetime
 
-from vnpy.trader.database import DB_TZ
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.trader.object import BarData, HistoryRequest
-from vnpy.alpha import AlphaLab, logger
+from vnpy.alpha import AlphaLab
+from vnpy.trader.constant import Exchange
 
 # 设置参数
 task_name = "csi300"
@@ -59,6 +55,7 @@ def create_index_components():
 
     # 为从start_date到end_date的每一天创建成分股映射
     from datetime import timedelta
+
     current_dt = start_dt
     while current_dt <= end_dt:
         current_date = current_dt.strftime("%Y-%m-%d")

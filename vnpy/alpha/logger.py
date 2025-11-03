@@ -2,7 +2,6 @@ import sys
 
 from loguru import logger
 
-
 # Remove default output
 logger.remove()
 
@@ -11,18 +10,23 @@ logger.remove()
 fmt: str = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> <level>{message}</level>"
 logger.add(sys.stdout, colorize=True, format=fmt)
 
-import time
-import psutil
 import functools
 import logging
+import time
+
+import psutil
 
 # 配置 logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
 
 def log_time_memory(func):
     """
     装饰器：打印函数执行时间和内存变化
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         process = psutil.Process()  # 当前进程
@@ -41,4 +45,5 @@ def log_time_memory(func):
             f"RSS: {rss_after / 1024 / 1024:.1f}MB"
         )
         return result
+
     return wrapper

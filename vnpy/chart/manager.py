@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from _collections_abc import dict_keys
 
 from vnpy.trader.object import BarData
@@ -90,7 +91,9 @@ class BarManager:
         """
         return list(self._bars.values())
 
-    def get_price_range(self, min_ix: float | None = None, max_ix: float | None = None) -> tuple[float, float]:
+    def get_price_range(
+        self, min_ix: float | None = None, max_ix: float | None = None
+    ) -> tuple[float, float]:
         """
         Get price range to show within given index range.
         """
@@ -109,7 +112,7 @@ class BarManager:
         if buf:
             return buf
 
-        bar_list: list[BarData] = list(self._bars.values())[min_ix:max_ix + 1]
+        bar_list: list[BarData] = list(self._bars.values())[min_ix : max_ix + 1]
         first_bar: BarData = bar_list[0]
         max_price: float = first_bar.high_price
         min_price: float = first_bar.low_price
@@ -121,7 +124,9 @@ class BarManager:
         self._price_ranges[(min_ix, max_ix)] = (min_price, max_price)
         return min_price, max_price
 
-    def get_volume_range(self, min_ix: float | None = None, max_ix: float | None = None) -> tuple[float, float]:
+    def get_volume_range(
+        self, min_ix: float | None = None, max_ix: float | None = None
+    ) -> tuple[float, float]:
         """
         Get volume range to show within given index range.
         """
@@ -136,11 +141,13 @@ class BarManager:
             max_ix = to_int(max_ix)
             max_ix = min(max_ix, self.get_count())
 
-        buf: tuple[float, float] | None = self._volume_ranges.get((min_ix, max_ix), None)
+        buf: tuple[float, float] | None = self._volume_ranges.get(
+            (min_ix, max_ix), None
+        )
         if buf:
             return buf
 
-        bar_list: list[BarData] = list(self._bars.values())[min_ix:max_ix + 1]
+        bar_list: list[BarData] = list(self._bars.values())[min_ix : max_ix + 1]
 
         first_bar: BarData = bar_list[0]
         max_volume = first_bar.volume

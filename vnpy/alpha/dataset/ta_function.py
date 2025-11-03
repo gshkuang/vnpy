@@ -2,9 +2,9 @@
 Technical Analysis Operators (bridge LazyFrame to pandas for TA-Lib)
 """
 
-import talib
-import polars as pl
 import pandas as pd
+import polars as pl
+import talib
 
 from .utility import FeatProxy
 
@@ -26,7 +26,7 @@ def ta_rsi(close: FeatProxy, window: int) -> FeatProxy:
     """Calculate RSI indicator by contract"""
     close_: pd.Series = to_pd_series(close)
 
-    result: pd.Series = talib.RSI(close_, timeperiod=window)   # type: ignore
+    result: pd.Series = talib.RSI(close_, timeperiod=window)  # type: ignore
 
     lf: pl.LazyFrame = to_pl_dataframe(result)
     return FeatProxy(lf)
@@ -38,7 +38,7 @@ def ta_atr(high: FeatProxy, low: FeatProxy, close: FeatProxy, window: int) -> Fe
     low_: pd.Series = to_pd_series(low)
     close_: pd.Series = to_pd_series(close)
 
-    result: pd.Series = talib.ATR(high_, low_, close_, timeperiod=window)   # type: ignore
+    result: pd.Series = talib.ATR(high_, low_, close_, timeperiod=window)  # type: ignore
 
     lf: pl.LazyFrame = to_pl_dataframe(result)
     return FeatProxy(lf)

@@ -1,15 +1,16 @@
 # 加载模块
-import os
 import glob
-import pandas as pd
-from datetime import datetime
+import os
 import re
+from datetime import datetime
+
+import pandas as pd
 from tqdm import tqdm
 
-from vnpy.trader.database import DB_TZ
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.trader.object import BarData, HistoryRequest
 from vnpy.alpha import AlphaLab, logger
+from vnpy.trader.constant import Exchange, Interval
+from vnpy.trader.database import DB_TZ
+from vnpy.trader.object import BarData
 
 # 设置参数
 # 为不同的时间周期设置不同的任务名称和日期范围
@@ -182,10 +183,15 @@ for interval_key, settings in interval_settings.items():
                     continue
 
                 # 检查OHLC数据是否为NaN
-                if pd.isna(row["open"]) or pd.isna(row["high"]) or pd.isna(row["low"]) or pd.isna(row["close"]):
+                if (
+                    pd.isna(row["open"])
+                    or pd.isna(row["high"])
+                    or pd.isna(row["low"])
+                    or pd.isna(row["close"])
+                ):
                     logger.warning(f"跳过{vt_symbol}的NaN数据: {row}")
                     continue
-                    
+
                 # 创建Bar对象
                 bar = BarData(
                     symbol=symbol,

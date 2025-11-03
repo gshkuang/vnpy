@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from vnpy.trader.object import BarData, TradeData, OrderData
-from vnpy.trader.constant import Offset, Direction
-
+from vnpy.trader.constant import Direction, Offset
+from vnpy.trader.object import BarData, OrderData, TradeData
 
 if TYPE_CHECKING:
     from vnpy.alpha.strategy.backtesting import BacktestingEngine
@@ -20,7 +19,7 @@ class AlphaStrategy(metaclass=ABCMeta):
         strategy_engine: "BacktestingEngine",
         strategy_name: str,
         vt_symbols: list[str],
-        setting: dict
+        setting: dict,
     ) -> None:
         """Constructor"""
         self.strategy_engine: BacktestingEngine = strategy_engine
@@ -28,8 +27,8 @@ class AlphaStrategy(metaclass=ABCMeta):
         self.vt_symbols: list[str] = vt_symbols
 
         # Position data dictionaries
-        self.pos_data: dict[str, float] = defaultdict(float)        # Actual positions
-        self.target_data: dict[str, float] = defaultdict(float)     # Target positions
+        self.pos_data: dict[str, float] = defaultdict(float)  # Actual positions
+        self.target_data: dict[str, float] = defaultdict(float)  # Target positions
 
         # Order cache containers
         self.orders: dict[str, OrderData] = {}
@@ -43,17 +42,14 @@ class AlphaStrategy(metaclass=ABCMeta):
     @abstractmethod
     def on_init(self) -> None:
         """Initialization callback"""
-        pass
 
     @abstractmethod
     def on_bars(self, bars: dict[str, BarData]) -> None:
         """Bar slice callback"""
-        pass
 
     @abstractmethod
     def on_trade(self, trade: TradeData) -> None:
         """Trade callback"""
-        pass
 
     def update_trade(self, trade: TradeData) -> None:
         """Update trade data"""
@@ -97,7 +93,7 @@ class AlphaStrategy(metaclass=ABCMeta):
         direction: Direction,
         offset: Offset,
         price: float,
-        volume: float
+        volume: float,
     ) -> list[str]:
         """Send order"""
         vt_orderids: list = self.strategy_engine.send_order(

@@ -24,37 +24,47 @@ class FeatProxy:
 
     def expr2proxy(self, expr: pl.Expr) -> "FeatProxy":
         """Convert expression to feature LazyFrame"""
-        lf: pl.LazyFrame = self.df.select([
-            pl.col("datetime"),
-            pl.col("vt_symbol"),
-            expr.alias("data")
-        ])
+        lf: pl.LazyFrame = self.df.select(
+            [pl.col("datetime"), pl.col("vt_symbol"), expr.alias("data")]
+        )
         return FeatProxy(lf)
 
     def __add__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Addition operation"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") + pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") + pl.lit(other))
 
     def __sub__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Subtraction operation"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") - pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") - pl.lit(other))
 
     def __mul__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Multiplication operation"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") * pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") * pl.lit(other))
 
@@ -65,9 +75,13 @@ class FeatProxy:
     def __truediv__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Division operation"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") / pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") / pl.lit(other))
 
@@ -78,48 +92,67 @@ class FeatProxy:
     def __gt__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Greater than comparison"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") > pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") > pl.lit(other))
 
     def __ge__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Greater than or equal comparison"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") >= pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") >= pl.lit(other))
 
     def __lt__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Less than comparison"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") < pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") < pl.lit(other))
 
     def __le__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":
         """Less than or equal comparison"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") <= pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") <= pl.lit(other))
 
-    def __eq__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":    # type: ignore
+    def __eq__(self, other: Union["FeatProxy", int, float]) -> "FeatProxy":  # type: ignore
         """Equal comparison"""
         if isinstance(other, FeatProxy):
-            merged = self.df.join(other.df, on=["datetime", "vt_symbol"])  # data_right suffix on right
+            merged = self.df.join(
+                other.df, on=["datetime", "vt_symbol"]
+            )  # data_right suffix on right
             expr = pl.col("data") == pl.col("data_right")
-            return FeatProxy(merged.select(["datetime", "vt_symbol", expr.alias("data")]))
+            return FeatProxy(
+                merged.select(["datetime", "vt_symbol", expr.alias("data")])
+            )
         else:
             return self.expr2proxy(pl.col("data") == pl.lit(other))
-
 
 
 def to_datetime(arg: datetime | str) -> datetime:

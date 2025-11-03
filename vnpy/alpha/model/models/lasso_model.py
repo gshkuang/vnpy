@@ -1,14 +1,10 @@
 import os
 from pathlib import Path
-import numpy as np
-import polars as pl
-from sklearn.linear_model import Lasso      # type: ignore
 
-from vnpy.alpha import (
-    AlphaModel,
-    Segment,
-    logger
-)
+import numpy as np
+from sklearn.linear_model import Lasso  # type: ignore
+
+from vnpy.alpha import AlphaModel, logger
 
 
 class LassoModel(AlphaModel):
@@ -52,12 +48,15 @@ class LassoModel(AlphaModel):
             raise FileNotFoundError("train.parquet 或 valid.parquet 不存在于切分目录")
 
         import pandas as pd
+
         df_train = pd.read_parquet(train_path)
         df_valid = pd.read_parquet(valid_path)
 
         df_train = pd.concat([df_train, df_valid], axis=0)
         # 切分文件已无键列，直接按特征与 label 构造
-        self.feature_names = [c for c in df_train.columns if c not in ["datetime", "vt_symbol", "label"]]
+        self.feature_names = [
+            c for c in df_train.columns if c not in ["datetime", "vt_symbol", "label"]
+        ]
         X: np.ndarray = df_train[self.feature_names].to_numpy()
         y: np.ndarray = df_train["label"].to_numpy()
 
@@ -75,8 +74,11 @@ class LassoModel(AlphaModel):
         if self.model is None:
             raise ValueError("model is not fitted yet!")
         import pandas as pd
+
         df = pd.read_parquet(parquet_path)
-        feat_cols = [c for c in df.columns if c not in ["datetime", "vt_symbol", "label"]]
+        feat_cols = [
+            c for c in df.columns if c not in ["datetime", "vt_symbol", "label"]
+        ]
         data: np.ndarray = df[feat_cols].to_numpy()
         return self.model.predict(data)
 
@@ -92,7 +94,9 @@ class LassoModel(AlphaModel):
         coef: np.ndarray = self.model.coef_
 
         # Extract feature coefficients
-        data: list[tuple[str, float]] = list(zip(self.feature_names, coef, strict=False))
+        data: list[tuple[str, float]] = list(
+            zip(self.feature_names, coef, strict=False)
+        )
 
         # Filter non-zero features
         data = [x for x in data if x[1]]

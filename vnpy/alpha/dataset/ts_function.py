@@ -2,11 +2,8 @@
 Time Series Operators (LazyFrame-based)
 """
 
-from typing import cast
-
-from scipy import stats  # type: ignore
 import polars as pl
-import numpy as np
+from scipy import stats  # type: ignore
 
 from .utility import FeatProxy
 
@@ -41,21 +38,25 @@ def ts_max(feature: FeatProxy, window: int) -> FeatProxy:
     return FeatProxy(lf)
 
 
-def ts_argmax(feature: FeatProxy, window: int,period) -> FeatProxy:
+def ts_argmax(feature: FeatProxy, window: int, period) -> FeatProxy:
     """Return the index of the maximum value over a rolling window"""
-    lf = feature.df.rolling(index_column="datetime", by="vt_symbol", period=f"{window}{period}").agg(pl.col("data").arg_max().alias("data"))
+    lf = feature.df.rolling(
+        index_column="datetime", by="vt_symbol", period=f"{window}{period}"
+    ).agg(pl.col("data").arg_max().alias("data"))
 
     return FeatProxy(lf)
 
 
-def ts_argmin(feature: FeatProxy, window: int,period) -> FeatProxy:
+def ts_argmin(feature: FeatProxy, window: int, period) -> FeatProxy:
     """Return the index of the minimum value over a rolling window"""
-    lf = feature.df.rolling(index_column="datetime", by="vt_symbol", period=f"{window}{period}").agg(pl.col("data").arg_min().alias("data"))
-    
+    lf = feature.df.rolling(
+        index_column="datetime", by="vt_symbol", period=f"{window}{period}"
+    ).agg(pl.col("data").arg_min().alias("data"))
+
     return FeatProxy(lf)
 
 
-def ts_rank(feature: FeatProxy, window: int,period="m") -> FeatProxy:
+def ts_rank(feature: FeatProxy, window: int, period="m") -> FeatProxy:
     """
     计算滚动窗口内“当前值”的百分位（向量化实现）。
 
@@ -64,18 +65,19 @@ def ts_rank(feature: FeatProxy, window: int,period="m") -> FeatProxy:
     - 当前值 y_t 的百分位：rank_t = #{ y_i ∈ W_t | y_i <= y_t } / |W_t|。
     """
     lf = (
-        feature.df
-        .sort(["vt_symbol", "datetime"])
+        feature.df.sort(["vt_symbol", "datetime"])
         .rolling(
             index_column="datetime",
             group_by="vt_symbol",
             period=f"{window}{period}",
-            closed="right"
+            closed="right",
         )
-        .agg([
-            pl.col("data").rank(method="min").alias("rank_min"),
-            pl.count().alias("count")
-        ])
+        .agg(
+            [
+                pl.col("data").rank(method="min").alias("rank_min"),
+                pl.count().alias("count"),
+            ]
+        )
         .with_columns(
             # 取当前点在窗口中的 rank（rank_min 列为列表，last 即当前值的秩）
             (pl.col("rank_min").list.last() / pl.col("count")).alias("data")
@@ -102,7 +104,10 @@ def ts_mean(feature: FeatProxy, window: int) -> FeatProxy:
     lf = feature.df.select(
         pl.col("datetime"),
         pl.col("vt_symbol"),
-        pl.col("data").cast(pl.Float64).rolling_mean(window, min_samples=1).over("vt_symbol"),
+        pl.col("data")
+        .cast(pl.Float64)
+        .rolling_mean(window, min_samples=1)
+        .over("vt_symbol"),
     )
     return FeatProxy(lf)
 
@@ -134,23 +139,42 @@ def ts_slope(feature: FeatProxy, window: int) -> FeatProxy:
     # 组内 x 用时间戳的数值表示（等距时间步下与索引线性等价），避免嵌套窗口
     x_expr = pl.col("datetime").cast(pl.Float64)
 
-    lf = feature.df.with_columns(
-        x_expr.alias("x"),
-        # n = 真实样本数：对列常量 1 做滚动求和，避免对 pl.lit 的滚动造成不兼容
-        (pl.col("data")*0 + 1.0).rolling_sum(window, min_samples=1).over("vt_symbol").alias("n"),
-        (x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sx"),
-        pl.col("data").rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sy"),
-        (x_expr * x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sxx"),
-        (x_expr * pl.col("data")).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sxy"),
-    ).select(
-        pl.col("datetime"),
-        pl.col("vt_symbol"),
-        (
-            (pl.col("Sxy") - pl.col("Sx") * pl.col("Sy") / pl.col("n")) /
-            (pl.col("Sxx") - pl.col("Sx") * pl.col("Sx") / pl.col("n"))
-        ).alias("data")
-    ).with_columns(
-        pl.when(pl.col("data").is_infinite() | pl.col("data").is_nan()).then(None).otherwise(pl.col("data")).alias("data")
+    lf = (
+        feature.df.with_columns(
+            x_expr.alias("x"),
+            # n = 真实样本数：对列常量 1 做滚动求和，避免对 pl.lit 的滚动造成不兼容
+            (pl.col("data") * 0 + 1.0)
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("n"),
+            (x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sx"),
+            pl.col("data")
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sy"),
+            (x_expr * x_expr)
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sxx"),
+            (x_expr * pl.col("data"))
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sxy"),
+        )
+        .select(
+            pl.col("datetime"),
+            pl.col("vt_symbol"),
+            (
+                (pl.col("Sxy") - pl.col("Sx") * pl.col("Sy") / pl.col("n"))
+                / (pl.col("Sxx") - pl.col("Sx") * pl.col("Sx") / pl.col("n"))
+            ).alias("data"),
+        )
+        .with_columns(
+            pl.when(pl.col("data").is_infinite() | pl.col("data").is_nan())
+            .then(None)
+            .otherwise(pl.col("data"))
+            .alias("data")
+        )
     )
     return FeatProxy(lf)
 
@@ -183,24 +207,55 @@ def ts_rsquare(feature: FeatProxy, window: int) -> FeatProxy:
 
     x_expr = pl.col("datetime").cast(pl.Float64)
 
-    lf = feature.df.with_columns(
-        x_expr.alias("x"),
-        (pl.col("data")*0 + 1.0).rolling_sum(window, min_samples=1).over("vt_symbol").alias("n"),
-        (x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sx"),
-        pl.col("data").rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sy"),
-        (x_expr * x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sxx"),
-        (pl.col("data") * pl.col("data")).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Syy"),
-        (x_expr * pl.col("data")).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sxy"),
-    ).with_columns(
-        ((pl.col("Sxy") - pl.col("Sx") * pl.col("Sy") / pl.col("n")) / pl.col("n")).alias("cov"),
-        ((pl.col("Sxx") - pl.col("Sx") * pl.col("Sx") / pl.col("n")) / pl.col("n")).alias("var_x"),
-        ((pl.col("Syy") - pl.col("Sy") * pl.col("Sy") / pl.col("n")) / pl.col("n")).alias("var_y"),
-    ).select(
-        pl.col("datetime"),
-        pl.col("vt_symbol"),
-        pl.when((pl.col("var_x") <= 0) | (pl.col("var_y") <= 0)).then(None).otherwise(
-            (pl.col("cov") * pl.col("cov")) / (pl.col("var_x") * pl.col("var_y"))
-        ).alias("data")
+    lf = (
+        feature.df.with_columns(
+            x_expr.alias("x"),
+            (pl.col("data") * 0 + 1.0)
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("n"),
+            (x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sx"),
+            pl.col("data")
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sy"),
+            (x_expr * x_expr)
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sxx"),
+            (pl.col("data") * pl.col("data"))
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Syy"),
+            (x_expr * pl.col("data"))
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sxy"),
+        )
+        .with_columns(
+            (
+                (pl.col("Sxy") - pl.col("Sx") * pl.col("Sy") / pl.col("n"))
+                / pl.col("n")
+            ).alias("cov"),
+            (
+                (pl.col("Sxx") - pl.col("Sx") * pl.col("Sx") / pl.col("n"))
+                / pl.col("n")
+            ).alias("var_x"),
+            (
+                (pl.col("Syy") - pl.col("Sy") * pl.col("Sy") / pl.col("n"))
+                / pl.col("n")
+            ).alias("var_y"),
+        )
+        .select(
+            pl.col("datetime"),
+            pl.col("vt_symbol"),
+            pl.when((pl.col("var_x") <= 0) | (pl.col("var_y") <= 0))
+            .then(None)
+            .otherwise(
+                (pl.col("cov") * pl.col("cov")) / (pl.col("var_x") * pl.col("var_y"))
+            )
+            .alias("data"),
+        )
     )
     return FeatProxy(lf)
 
@@ -219,24 +274,54 @@ def ts_resi(feature: FeatProxy, window: int) -> FeatProxy:
 
     x_expr = pl.col("datetime").cast(pl.Float64)
 
-    lf = feature.df.with_columns(
-        x_expr.alias("x"),
-        (pl.col("data")*0 + 1.0).rolling_sum(window, min_samples=1).over("vt_symbol").alias("n"),
-        (x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sx"),
-        pl.col("data").rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sy"),
-        (x_expr * x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sxx"),
-        (x_expr * pl.col("data")).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sxy"),
-    ).with_columns(
-        (((pl.col("Sxy") - pl.col("Sx") * pl.col("Sy") / pl.col("n")) /
-           (pl.col("Sxx") - pl.col("Sx") * pl.col("Sx") / pl.col("n")))).alias("m"),
-        (pl.col("Sx") / pl.col("n")).alias("mx"),
-        (pl.col("Sy") / pl.col("n")).alias("my"),
-    ).select(
-        pl.col("datetime"),
-        pl.col("vt_symbol"),
-        (pl.col("data") - (pl.col("m") * pl.col("x") + (pl.col("my") - pl.col("m") * pl.col("mx")))).alias("data")
-    ).with_columns(
-        pl.when(pl.col("data").is_infinite() | pl.col("data").is_nan()).then(None).otherwise(pl.col("data")).alias("data")
+    lf = (
+        feature.df.with_columns(
+            x_expr.alias("x"),
+            (pl.col("data") * 0 + 1.0)
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("n"),
+            (x_expr).rolling_sum(window, min_samples=1).over("vt_symbol").alias("Sx"),
+            pl.col("data")
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sy"),
+            (x_expr * x_expr)
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sxx"),
+            (x_expr * pl.col("data"))
+            .rolling_sum(window, min_samples=1)
+            .over("vt_symbol")
+            .alias("Sxy"),
+        )
+        .with_columns(
+            (
+                (
+                    (pl.col("Sxy") - pl.col("Sx") * pl.col("Sy") / pl.col("n"))
+                    / (pl.col("Sxx") - pl.col("Sx") * pl.col("Sx") / pl.col("n"))
+                )
+            ).alias("m"),
+            (pl.col("Sx") / pl.col("n")).alias("mx"),
+            (pl.col("Sy") / pl.col("n")).alias("my"),
+        )
+        .select(
+            pl.col("datetime"),
+            pl.col("vt_symbol"),
+            (
+                pl.col("data")
+                - (
+                    pl.col("m") * pl.col("x")
+                    + (pl.col("my") - pl.col("m") * pl.col("mx"))
+                )
+            ).alias("data"),
+        )
+        .with_columns(
+            pl.when(pl.col("data").is_infinite() | pl.col("data").is_nan())
+            .then(None)
+            .otherwise(pl.col("data"))
+            .alias("data")
+        )
     )
     return FeatProxy(lf)
 

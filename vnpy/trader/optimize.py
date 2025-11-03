@@ -1,17 +1,16 @@
 from collections.abc import Callable
-from itertools import product
 from concurrent.futures import ProcessPoolExecutor
-from random import random, choice
-from time import perf_counter
+from itertools import product
 from multiprocessing import get_context
 from multiprocessing.context import BaseContext
 from multiprocessing.managers import DictProxy
-from _collections_abc import dict_keys, dict_values, Iterable
-
-from tqdm import tqdm
-from deap import creator, base, tools, algorithms  # type: ignore
+from random import choice, random
+from time import perf_counter
 
 import optuna
+from _collections_abc import Iterable, dict_keys, dict_values
+from deap import algorithms, base, creator, tools  # type: ignore
+from tqdm import tqdm
 
 from .locale import _
 

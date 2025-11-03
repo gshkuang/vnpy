@@ -1,33 +1,13 @@
 from abc import ABC, abstractmethod
 
 from vnpy.event import Event, EventEngine
-from .event import (
-    EVENT_TICK,
-    EVENT_ORDER,
-    EVENT_TRADE,
-    EVENT_POSITION,
-    EVENT_ACCOUNT,
-    EVENT_CONTRACT,
-    EVENT_LOG,
-    EVENT_QUOTE,
-)
-from .object import (
-    TickData,
-    OrderData,
-    TradeData,
-    PositionData,
-    AccountData,
-    ContractData,
-    LogData,
-    QuoteData,
-    OrderRequest,
-    CancelRequest,
-    SubscribeRequest,
-    HistoryRequest,
-    QuoteRequest,
-    Exchange,
-    BarData
-)
+
+from .event import (EVENT_ACCOUNT, EVENT_CONTRACT, EVENT_LOG, EVENT_ORDER,
+                    EVENT_POSITION, EVENT_QUOTE, EVENT_TICK, EVENT_TRADE)
+from .object import (AccountData, BarData, CancelRequest, ContractData,
+                     Exchange, HistoryRequest, LogData, OrderData,
+                     OrderRequest, PositionData, QuoteData, QuoteRequest,
+                     SubscribeRequest, TickData, TradeData)
 
 
 class BaseGateway(ABC):
@@ -177,21 +157,18 @@ class BaseGateway(ABC):
         response callback/change status instead of write_log
 
         """
-        pass
 
     @abstractmethod
     def close(self) -> None:
         """
         Close gateway connection.
         """
-        pass
 
     @abstractmethod
     def subscribe(self, req: SubscribeRequest) -> None:
         """
         Subscribe tick data update.
         """
-        pass
 
     @abstractmethod
     def send_order(self, req: OrderRequest) -> str:
@@ -209,7 +186,6 @@ class BaseGateway(ABC):
 
         :return str vt_orderid for created OrderData
         """
-        pass
 
     @abstractmethod
     def cancel_order(self, req: CancelRequest) -> None:
@@ -218,7 +194,6 @@ class BaseGateway(ABC):
         implementation should finish the tasks blow:
         * send request to server
         """
-        pass
 
     def send_quote(self, req: QuoteRequest) -> str:
         """
@@ -250,14 +225,12 @@ class BaseGateway(ABC):
         """
         Query account balance.
         """
-        pass
 
     @abstractmethod
     def query_position(self) -> None:
         """
         Query holding positions.
         """
-        pass
 
     def query_history(self, req: HistoryRequest) -> list[BarData]:
         """

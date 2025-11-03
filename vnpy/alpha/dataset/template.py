@@ -1,18 +1,22 @@
-import time
-from datetime import datetime
-from typing import cast
-from collections.abc import Callable
-import polars as pl
-import pandas as pd
-from alphalens.utils import get_clean_factor_and_forward_returns
-from alphalens.tears import create_full_tear_sheet  
 import pickle
+import time
+from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
-from ..logger import logger,log_time_memory
-from .utility import to_datetime, Segment, FeatProxy
-from .processor import process_lf_drop_na
-from .feature_pipeline import feat_norm_pipeline,save_duckdb_splits
+from typing import cast
+
+import pandas as pd
+import polars as pl
+from alphalens.tears import create_full_tear_sheet
+from alphalens.utils import get_clean_factor_and_forward_returns
+
+from ..logger import log_time_memory, logger
 from .config import DATASET_CONFIG
+from .feature_pipeline import feat_norm_pipeline, save_duckdb_splits
+from .processor import process_lf_drop_na
+from .utility import FeatProxy, Segment, to_datetime
+
+
 class AlphaDataset:
     """Alpha dataset template class"""
 
@@ -25,7 +29,9 @@ class AlphaDataset:
         lab_dir: str,
     ) -> None:
         """Constructor"""
-        self.df: pl.DataFrame =df.unique(subset=["datetime", "vt_symbol"], keep="first").sort(["datetime", "vt_symbol"])
+        self.df: pl.DataFrame = df.unique(
+            subset=["datetime", "vt_symbol"], keep="first"
+        ).sort(["datetime", "vt_symbol"])
         self.lab_dir: Path = Path(lab_dir)
 
         # New version
@@ -49,41 +55,36 @@ class AlphaDataset:
         """Set collect engine, e.g., 'streaming', 'gpu'"""
         self.collect_engine = engine
 
-    def add_feature(
-        self,
-        name: str,
-        feature: FeatProxy
-    ) -> None:
+    def add_feature(self, name: str, feature: FeatProxy) -> None:
         """Add a feature and record meta attributes for unified management"""
         self.features[name] = feature
-    
 
-    def set_label(self,  feature: FeatProxy) -> None:
+    def set_label(self, feature: FeatProxy) -> None:
         """Set label feature as (name, feature) tuple"""
         self.label_feature = ("label", feature)
-        
+
     @property
     def select_columns(self) -> list[str]:
         feature_cols: list[str] = list(self.features.keys())
         label_cols: list[str] = [self.label_feature[0]] if self.label_feature else []
-        return ["datetime", "vt_symbol"]+ feature_cols + label_cols
+        return ["datetime", "vt_symbol"] + feature_cols + label_cols
+
     @property
     def feature_columns(self) -> list[str]:
         """Return explicit feature column names in order."""
         return list(self.features.keys())
+
     @property
     def label_column(self) -> str:
         """Return label column name."""
         return self.label_feature[0] if self.label_feature else "label"
 
-    def add_processor(
-        self, processor: Callable[[pl.LazyFrame], pl.LazyFrame]
-    ) -> None:
+    def add_processor(self, processor: Callable[[pl.LazyFrame], pl.LazyFrame]) -> None:
         """Register a lazy processor: LazyFrame -> LazyFrame"""
         self.learn_processors.append(processor)
 
     def prepare_features(
-        self,  batch_size: int = 100, symbol: str | None = None
+        self, batch_size: int = 100, symbol: str | None = None
     ) -> None:
         """
         Generate required data once, then cache per segment to avoid duplication.
@@ -91,7 +92,7 @@ class AlphaDataset:
         - 按元属性选择列生成 raw_df（键列 + 特征 + 标签）
         - 处理器链执行一次，得到 processed_df
         - processed_df 按周期切片，统一放入 segment_data（相同引用，避免重复）
-        
+
         内存优化策略：
         - 流式合并：逐批合并特征，避免累积所有LazyFrame
         - 内存监控：动态调整批次大小，防止内存溢出
@@ -100,44 +101,55 @@ class AlphaDataset:
 
         logger.info("开始计算 因子特征")
         t_feat_start = time.time()
-    
+
         # 仅在 label_feature 存在时加入任务，避免 None 导致错误
         tasks: list[tuple[str, FeatProxy]] = list(self.features.items())
         if self.label_feature is not None:
             tasks.append(self.label_feature)
-    
+
         # 初始化结果为原始数据的LazyFrame
         result_df: pl.DataFrame = self.df
-        
+
         if tasks:
+
             @log_time_memory
             def _iter_batches(seq: list[tuple[str, FeatProxy]], size: int):
                 for i in range(0, len(seq), size):
-                    yield seq[i:i+size]
+                    yield seq[i : i + size]
+
             for batch in _iter_batches(tasks, batch_size):
-                series_list = [calculate_feature((name, feature),self.collect_engine) for name, feature in batch] 
+                series_list = [
+                    calculate_feature((name, feature), self.collect_engine)
+                    for name, feature in batch
+                ]
                 result_df = result_df.hstack(series_list)
 
         t_feat_end = time.time()
 
         # 将计算好的 result_df 持久化到磁盘，释放内存
-        result_lf =result_df.lazy().with_columns(pl.col(self.features.keys()).fill_nan(float("nan")))
-        result_lf = result_lf.select(self.select_columns).sort(["datetime", "vt_symbol"])
-        result_lf=process_lf_drop_na(result_lf)
-        
+        result_lf = result_df.lazy().with_columns(
+            pl.col(self.features.keys()).fill_nan(float("nan"))
+        )
+        result_lf = result_lf.select(self.select_columns).sort(
+            ["datetime", "vt_symbol"]
+        )
+        result_lf = process_lf_drop_na(result_lf)
+
         paths_cfg = DATASET_CONFIG.get("paths", {})
         feat_dir = self.lab_dir.joinpath(paths_cfg.get("feat_dir", "feat"))
         feat_dir.mkdir(parents=True, exist_ok=True)
-        features_file =  feat_dir.joinpath( symbol+".parquet")
+        features_file = feat_dir.joinpath(symbol + ".parquet")
         result_lf.sink_parquet(features_file)
         logger.info(f"原始特征已写入磁盘: {features_file} | 行数: {result_df.height}")
 
-        logger.info(f"持久化特征结果 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
+        logger.info(
+            f"持久化特征结果 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s"
+        )
 
     def process_features(self):
         norm_cfg = DATASET_CONFIG.get("normalization", {})
-        split_cfg =DATASET_CONFIG.get("splits", {})
-        paths_cfg =DATASET_CONFIG.get("paths", {})
+        split_cfg = DATASET_CONFIG.get("splits", {})
+        paths_cfg = DATASET_CONFIG.get("paths", {})
         feat_norm_pipeline(
             feat_dir=self.lab_dir.joinpath(paths_cfg.get("feat_dir", "feat")),
             stats_dir=self.lab_dir.joinpath(paths_cfg.get("stats_dir", "stats")),
@@ -157,8 +169,10 @@ class AlphaDataset:
             shuffle=split_cfg.get("shuffle", True),
             seed=split_cfg.get("seed", 42),
         )
-    
-    def show_signal_performance(self, signal: pl.DataFrame,quantiles=10,signal_freq=None) -> None:
+
+    def show_signal_performance(
+        self, signal: pl.DataFrame, quantiles=10, signal_freq=None
+    ) -> None:
         """
         Perform performance analysis for prediction signals
         """
@@ -185,7 +199,9 @@ class AlphaDataset:
             ["datetime", "vt_symbol", "close"]
         ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
-        logger.info(f"price_df len: {len(price_df.index)} | signal_s len: {len(signal_s.index)}")
+        logger.info(
+            f"price_df len: {len(price_df.index)} | signal_s len: {len(signal_s.index)}"
+        )
         # Merge data
         clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
             signal_s, price_df, max_loss=1.0, quantiles=quantiles
@@ -194,7 +210,7 @@ class AlphaDataset:
         # Perform analysis
         create_full_tear_sheet(clean_data)
 
-    def save(self, path: Path ) -> None:
+    def save(self, path: Path) -> None:
         """
         保存到目录：保存元数据 pkl、原始数据 raw_df.parquet、各分段 processed parquet。
         """
@@ -202,7 +218,7 @@ class AlphaDataset:
         path.mkdir(parents=True, exist_ok=True)
         meta = {
             "schema_version": 2,
-            "periods": {k.name: v for k, v in self.data_periods.items()}
+            "periods": {k.name: v for k, v in self.data_periods.items()},
         }
         with open(path.joinpath("meta.pkl"), "wb") as f:
             pickle.dump(meta, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -211,13 +227,12 @@ class AlphaDataset:
         if isinstance(self.df, pl.DataFrame) and self.df.height > 0:
             self.df.write_parquet(path.joinpath("raw_df.parquet"))
 
-
     @classmethod
-    def load(cls, path: Path,name:str) -> "AlphaDataset":
+    def load(cls, path: Path, name: str) -> "AlphaDataset":
         """
         从目录加载数据集：读取元数据、原始数据 raw_df.parquet（若存在）与各分段 DataFrame。
         """
-        datapath = path.joinpath("dataset",name)
+        datapath = path.joinpath("dataset", name)
         meta_file = datapath.joinpath("meta.pkl")
         if not meta_file.exists():
             raise FileNotFoundError(f"Dataset meta file not found: {meta_file}")
@@ -236,7 +251,7 @@ class AlphaDataset:
         # 构造 df：优先读取原始数据；否则用三段合并（用于保持构造签名与基本功能）
         df = pl.read_parquet(raw_file)
 
-        dataset = cls(df, train, valid, test,path)
+        dataset = cls(df, train, valid, test, path)
 
         return dataset
 
@@ -258,9 +273,9 @@ def query_by_time(
     return df
 
 
-
 def calculate_feature(
-    args: tuple[str, FeatProxy],engine="gpu",
+    args: tuple[str, FeatProxy],
+    engine="gpu",
 ) -> pl.Series:
     """
     计算单个特征：收集 LazyFrame 为 DataFrame，重命名为特征名，并保留键列。
@@ -269,9 +284,13 @@ def calculate_feature(
     start = time.time()
 
     name, feature = args
-    result = feature.df.collect(engine=engine).sort(["datetime", "vt_symbol"])["data"].alias(name)
+    result = (
+        feature.df.collect(engine=engine)
+        .sort(["datetime", "vt_symbol"])["data"]
+        .alias(name)
+    )
 
     end = time.time()
-    #print(f"Feature calculation {name} took: {end - start} seconds")
+    # print(f"Feature calculation {name} took: {end - start} seconds")
 
     return result

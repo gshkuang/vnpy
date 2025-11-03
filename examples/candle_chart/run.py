@@ -1,10 +1,9 @@
 from datetime import datetime
 
-from vnpy.trader.ui import create_qapp, QtCore
+from vnpy.chart import CandleItem, ChartWidget, VolumeItem
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.database import get_database
-from vnpy.chart import ChartWidget, VolumeItem, CandleItem
-
+from vnpy.trader.ui import QtCore, create_qapp
 
 if __name__ == "__main__":
     app = create_qapp()
@@ -15,7 +14,7 @@ if __name__ == "__main__":
         Exchange.CFFEX,
         interval=Interval.MINUTE,
         start=datetime(2019, 7, 1),
-        end=datetime(2019, 7, 17)
+        end=datetime(2019, 7, 17),
     )
 
     widget = ChartWidget()

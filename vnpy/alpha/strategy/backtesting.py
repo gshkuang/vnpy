@@ -1,21 +1,21 @@
-from collections import defaultdict
-from datetime import date, datetime
-from copy import copy
-from typing import cast
 import traceback
+from collections import defaultdict
+from copy import copy
+from datetime import date, datetime
+from typing import cast
 
 import numpy as np
-import polars as pl
 import plotly.graph_objects as go  # type: ignore
+import polars as pl
 from plotly.subplots import make_subplots  # type: ignore
 from tqdm import tqdm
 
-from vnpy.trader.constant import Direction, Offset, Interval, Status
-from vnpy.trader.object import OrderData, TradeData, BarData
-from vnpy.trader.utility import round_to, extract_vt_symbol
+from vnpy.trader.constant import Direction, Interval, Offset, Status
+from vnpy.trader.object import BarData, OrderData, TradeData
+from vnpy.trader.utility import extract_vt_symbol, round_to
 
-from ..logger import logger
 from ..lab import AlphaLab
+from ..logger import logger
 from .template import AlphaStrategy
 
 
@@ -150,7 +150,9 @@ class BacktestingEngine:
         logger.info(
             f"所有历史数据加载完成，共{len(self.vt_symbols)-len(empty_symbols)}个合约"
         )
-        logger.info(f"历史数据时间范围：{min(self.dts)} - {max(self.dts)},sample;{sample}")
+        logger.info(
+            f"历史数据时间范围：{min(self.dts)} - {max(self.dts)},sample;{sample}"
+        )
 
     def run_backtesting(self) -> None:
         """Start backtesting"""

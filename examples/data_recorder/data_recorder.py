@@ -8,44 +8,43 @@
 from logging import INFO
 from time import sleep
 
-# 加载VeighNa核心框架
-from vnpy.event import EventEngine, Event
-from vnpy.trader.setting import SETTINGS
-from vnpy.trader.engine import MainEngine, LogEngine
-from vnpy.trader.object import ContractData
-from vnpy.trader.constant import Exchange, Product
-from vnpy.trader.event import EVENT_CONTRACT
-
 # 加载VeighNa插件模块
 from vnpy_ctp import CtpGateway
 from vnpy_datarecorder import DataRecorderApp, RecorderEngine
 from vnpy_datarecorder.engine import EVENT_RECORDER_LOG
 
+# 加载VeighNa核心框架
+from vnpy.event import Event, EventEngine
+from vnpy.trader.constant import Exchange, Product
+from vnpy.trader.engine import LogEngine, MainEngine
+from vnpy.trader.event import EVENT_CONTRACT
+from vnpy.trader.object import ContractData
+from vnpy.trader.setting import SETTINGS
 
 # 开启日志记录功能
 # 日志对于排查问题和监控系统运行状态非常重要
-SETTINGS["log.active"] = True       # 激活日志功能
-SETTINGS["log.level"] = INFO        # 设置日志级别为INFO，输出详细信息
-SETTINGS["log.console"] = True      # 在控制台显示日志，方便实时查看
+SETTINGS["log.active"] = True  # 激活日志功能
+SETTINGS["log.level"] = INFO  # 设置日志级别为INFO，输出详细信息
+SETTINGS["log.console"] = True  # 在控制台显示日志，方便实时查看
 
 
 # CTP接口登录信息
 # 以下使用的是SimNow模拟账户信息，初学者可以在SimNow官网申请
 ctp_setting: dict[str, str] = {
-    "用户名": "888888",                       # SimNow账户名
-    "密码": "123456",                         # SimNow密码
-    "经纪商代码": "9999",                     # SimNow经纪商代码固定为9999
-    "交易服务器": "180.168.146.187:10201",    # SimNow交易服务器地址和端口
-    "行情服务器": "180.168.146.187:10211",    # SimNow行情服务器地址和端口
-    "产品名称": "simnow_client_test",         # 产品名称，用于区分不同的客户端
-    "授权编码": "0000000000000000"            # 授权编码，SimNow模拟账户使用默认值即可
+    "用户名": "888888",  # SimNow账户名
+    "密码": "123456",  # SimNow密码
+    "经纪商代码": "9999",  # SimNow经纪商代码固定为9999
+    "交易服务器": "180.168.146.187:10201",  # SimNow交易服务器地址和端口
+    "行情服务器": "180.168.146.187:10211",  # SimNow行情服务器地址和端口
+    "产品名称": "simnow_client_test",  # 产品名称，用于区分不同的客户端
+    "授权编码": "0000000000000000",  # 授权编码，SimNow模拟账户使用默认值即可
 }
 
 
 # 要录制数据的交易所列表
 # 可以根据需要取消注释来添加更多交易所
 recording_exchanges: list[Exchange] = [
-    Exchange.CFFEX,          # 中国金融期货交易所
+    Exchange.CFFEX,  # 中国金融期货交易所
     # Exchange.SHFE,         # 上海期货交易所
     # Exchange.DCE,          # 大连商品交易所
     # Exchange.CZCE,         # 郑州商品交易所
@@ -57,7 +56,7 @@ recording_exchanges: list[Exchange] = [
 # 要录制数据的品种类型
 # 可以根据需要取消注释来添加更多品种
 recording_products: list[Product] = [
-    Product.FUTURES,        # 期货品种
+    Product.FUTURES,  # 期货品种
     # Product.OPTION,       # 期权品种
 ]
 
@@ -100,12 +99,14 @@ def run_recorder() -> None:
 
         # 判断合约是否符合录制条件
         if (
-            contract.exchange in recording_exchanges    # 检查合约所属交易所是否在预设列表中
-            and contract.product in recording_products  # 检查合约品种类型是否在预设列表中
+            contract.exchange
+            in recording_exchanges  # 检查合约所属交易所是否在预设列表中
+            and contract.product
+            in recording_products  # 检查合约品种类型是否在预设列表中
         ):
             # 添加该合约的行情录制任务，vt_symbol是VeighNa中的唯一标识符，格式为"代码.交易所"
-            recorder_engine.add_tick_recording(contract.vt_symbol)      # 录制Tick数据
-            recorder_engine.add_bar_recording(contract.vt_symbol)       # 录制分钟K线
+            recorder_engine.add_tick_recording(contract.vt_symbol)  # 录制Tick数据
+            recorder_engine.add_bar_recording(contract.vt_symbol)  # 录制分钟K线
 
     # 注册合约事件处理函数，当有新合约信息推送时，会自动调用subscribe_data函数
     event_engine.register(EVENT_CONTRACT, subscribe_data)

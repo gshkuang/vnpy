@@ -2,44 +2,46 @@
 # coding: utf-8
 
 """
-整洁化后的投研工作流（MLP） - 配置驱动 + 子进程编排
+投研工作流（MLP） - 配置驱动 + 子进程编排
 
 通过 workflow.yaml 驱动各阶段（load_data, prepare_features, process_features, train_model,
 predict_signal, backtesting），各阶段尽可能在子进程执行，降低内存相互影响。
 """
-
 import os
-import sys
 import subprocess
+import sys
 from dataclasses import dataclass
-from typing import Any, Dict, List,Callable
-from pathlib import Path
 from datetime import datetime
-import time
+from pathlib import Path
+from typing import Any, Callable, Dict, List
+
 import polars as pl
 import yaml
 
-from vnpy.alpha import AlphaLab, AlphaDataset, AlphaModel, logger
-from vnpy.trader.constant import Interval
-from vnpy.alpha.dataset.datasets.alpha_158 import Alpha158
+import vnpy.alpha.strategy.strategies.equity_demo_strategy as equity_demo_strategy
+from vnpy.alpha import AlphaDataset, AlphaLab, AlphaModel, logger
 from vnpy.alpha.dataset.config import DATASET_CONFIG
+from vnpy.alpha.dataset.datasets.alpha_158 import Alpha158
 from vnpy.alpha.model.models.mlp_model import MlpModel
 from vnpy.alpha.strategy import BacktestingEngine
-import vnpy.alpha.strategy.strategies.equity_demo_strategy as equity_demo_strategy
+from vnpy.trader.constant import Interval
 
 # -----------------------------
 # Step 注册机制
 # -----------------------------
 STEP_REGISTRY: Dict[str, Callable] = {}
 
+
 def register_step(name: str):
     """装饰器：注册一个 step 到 registry"""
+
     def decorator(func):
         STEP_REGISTRY[name] = func
         return func
+
     return decorator
 
-    
+
 @dataclass
 class WorkflowContext:
     name: str
@@ -82,8 +84,6 @@ def build_context(cfg: Dict[str, Any]) -> WorkflowContext:
     end = general.get("end")
 
     component_symbols = lab.load_component_symbols(index_symbol, start, end)
-    
-    
 
     return WorkflowContext(
         name=general.get("name"),
@@ -108,7 +108,9 @@ def step_load_data(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
     logger.info(f"成分股数量: {len(component_symbols)}")
 
     for i, symbol in enumerate(component_symbols):
-        df: pl.DataFrame | None = lab.load_bar_df([symbol], ctx.interval_enum, ctx.start, ctx.end, ctx.extended_days)
+        df: pl.DataFrame | None = lab.load_bar_df(
+            [symbol], ctx.interval_enum, ctx.start, ctx.end, ctx.extended_days
+        )
         if df is None or df.height == 0:
             logger.info(f"{symbol} 缺少数据，跳过")
             continue
@@ -123,6 +125,7 @@ def step_load_data(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
         )
         dataset.prepare_features(symbol=symbol)
 
+
 @register_step("process_features")
 def step_process_features(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
     lab: AlphaLab = ctx.lab
@@ -130,7 +133,9 @@ def step_process_features(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> Non
     symbols = ctx.component_symbols
     if not symbols:
         raise RuntimeError("无成分数据，无法进行特征处理")
-    df: pl.DataFrame | None = lab.load_bar_df([symbols[0]], ctx.interval_enum, ctx.start, ctx.end, ctx.extended_days)
+    df: pl.DataFrame | None = lab.load_bar_df(
+        [symbols[0]], ctx.interval_enum, ctx.start, ctx.end, ctx.extended_days
+    )
     if df is None or df.height == 0:
         raise RuntimeError("无法加载用于构造数据集的示例数据")
 
@@ -144,16 +149,20 @@ def step_process_features(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> Non
     )
     dataset.process_features()
 
+
 @register_step("train_model")
 def step_train_model(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
     lab: AlphaLab = ctx.lab
-    splits_dir = str(Path(ctx.lab_dir) / DATASET_CONFIG.get("paths", {}).get("splits_dir", "splits"))
+    splits_dir = str(
+        Path(ctx.lab_dir) / DATASET_CONFIG.get("paths", {}).get("splits_dir", "splits")
+    )
 
     kwargs = step_cfg.get("config", {})
     model: AlphaModel = MlpModel(**kwargs)
     model.fit(splits_dir)
     model.detail()
     lab.save_model(ctx.name, model)
+
 
 @register_step("predict_signal")
 def step_predict_signal(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
@@ -164,13 +173,18 @@ def step_predict_signal(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
     if model is None:
         raise FileNotFoundError(f"模型 {ctx.name} 不存在，请先执行 train_model")
 
-    test_parquet = str(Path(ctx.lab_dir) / DATASET_CONFIG.get("paths", {}).get("splits_dir", "splits") / "test.parquet")
+    test_parquet = str(
+        Path(ctx.lab_dir)
+        / DATASET_CONFIG.get("paths", {}).get("splits_dir", "splits")
+        / "test.parquet"
+    )
     preds = model.predict(test_parquet)
 
     # 使用 scan_parquet 仅收集键列，避免不必要内存
     lf_keys = pl.scan_parquet(test_parquet).select(["datetime", "vt_symbol"]).collect()
     out = lf_keys.with_columns(pl.Series("signal", preds))
     lab.save_signal(ctx.name, out)
+
 
 @register_step("backtesting")
 def step_backtesting(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
@@ -218,7 +232,7 @@ def run_step_subprocess(step_type, config_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1  # 行缓冲
+        bufsize=1,  # 行缓冲
     )
 
     # 实时逐行读取日志
@@ -233,7 +247,9 @@ def run_step_subprocess(step_type, config_path):
 
 def main() -> None:
     # 主入口：读取 YAML，按 steps 顺序在子进程执行（尊重 enabled 开关）
-    config_path = os.environ.get("WORKFLOW_CONFIG", str(Path(__file__).with_name("workflow.yaml")))
+    config_path = os.environ.get(
+        "WORKFLOW_CONFIG", str(Path(__file__).with_name("workflow.yaml"))
+    )
     cfg = load_yaml(config_path)
     steps = cfg["workflow"].get("steps", [])
     for step in steps:
@@ -247,15 +263,15 @@ def main() -> None:
         logger.info(f"步骤完成: {step_type}")
 
 
-
-
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "run-step":
         step_type = sys.argv[2]
         config_path = sys.argv[4] if "--config" in sys.argv else "workflow.yaml"
         cfg = load_yaml(config_path)
         ctx = build_context(cfg)
-        step_cfg = next((s for s in cfg["workflow"]["steps"] if s["type"] == step_type), {})
+        step_cfg = next(
+            (s for s in cfg["workflow"]["steps"] if s["type"] == step_type), {}
+        )
         if step_type not in STEP_REGISTRY:
             raise ValueError(f"未知的步骤类型: {step_type}")
         STEP_REGISTRY[step_type](ctx, step_cfg)

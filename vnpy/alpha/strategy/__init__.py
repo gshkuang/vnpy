@@ -1,8 +1,4 @@
-from .template import AlphaStrategy
 from .backtesting import BacktestingEngine
+from .template import AlphaStrategy
 
-
-__all__ = [
-    "AlphaStrategy",
-    "BacktestingEngine"
-]
+__all__ = ["AlphaStrategy", "BacktestingEngine"]

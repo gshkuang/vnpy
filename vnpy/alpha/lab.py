@@ -1,21 +1,20 @@
 import json
 import shelve
-import pickle
-from pathlib import Path
-from datetime import datetime, timedelta
 from collections import defaultdict
+from datetime import datetime, timedelta
 from functools import lru_cache
+from pathlib import Path
 
+import joblib
 import polars as pl
 
-from vnpy.trader.object import BarData
 from vnpy.trader.constant import Interval
+from vnpy.trader.object import BarData
 from vnpy.trader.utility import extract_vt_symbol
 
-from .logger import logger
 from .dataset import AlphaDataset, to_datetime
+from .logger import logger
 from .model import AlphaModel
-import joblib
 
 
 class AlphaLab:
@@ -44,7 +43,7 @@ class AlphaLab:
             self.component_path,
             self.dataset_path,
             self.model_path,
-            self.signal_path
+            self.signal_path,
         ]:
             if not path.exists():
                 path.mkdir(parents=True)
@@ -75,7 +74,7 @@ class AlphaLab:
                 "close": bar.close_price,
                 "volume": bar.volume,
                 "turnover": bar.turnover,
-                "open_interest": bar.open_interest
+                "open_interest": bar.open_interest,
             }
             data.append(bar_data)
 
@@ -99,7 +98,7 @@ class AlphaLab:
         vt_symbol: str,
         interval: Interval | str,
         start: datetime | str,
-        end: datetime | str
+        end: datetime | str,
     ) -> list[BarData]:
         """Load bar data"""
         # Convert types
@@ -148,7 +147,7 @@ class AlphaLab:
                 volume=row["volume"],
                 turnover=row["turnover"],
                 open_interest=row["open_interest"],
-                gateway_name="DB"
+                gateway_name="DB",
             )
             bars.append(bar)
 
@@ -160,7 +159,7 @@ class AlphaLab:
         interval: Interval | str,
         start: datetime | str,
         end: datetime | str,
-        extended_days: int
+        extended_days: int,
     ) -> pl.DataFrame | None:
         """Load bar data as DataFrame"""
         if not vt_symbols:
@@ -197,11 +196,11 @@ class AlphaLab:
 
             # Filter by date range
             df = df.filter((pl.col("datetime") >= start) & (pl.col("datetime") <= end))
-            
+
             # Filter out data with length less than 300
             if len(df) < 300:
                 continue
-                
+
             # Specify data types
             df = df.with_columns(
                 pl.col("open"),
@@ -211,7 +210,7 @@ class AlphaLab:
                 pl.col("volume"),
                 pl.col("turnover"),
                 pl.col("open_interest"),
-                (pl.col("turnover") / pl.col("volume")).alias("vwap")
+                (pl.col("turnover") / pl.col("volume")).alias("vwap"),
             )
 
             # Check for empty data
@@ -229,12 +228,17 @@ class AlphaLab:
             )
 
             # Convert zeros to NaN for suspended trading days
-            numeric_columns: list = df.columns[1:]                              # Extract numeric columns
+            numeric_columns: list = df.columns[1:]  # Extract numeric columns
 
-            mask: pl.Series = df[numeric_columns].sum_horizontal() == 0         # Sum by row, if 0 then suspended
+            mask: pl.Series = (
+                df[numeric_columns].sum_horizontal() == 0
+            )  # Sum by row, if 0 then suspended
 
-            df = df.with_columns(                                               # Convert suspended day values to NaN
-                [pl.when(mask).then(float("nan")).otherwise(pl.col(col)).alias(col) for col in numeric_columns]
+            df = df.with_columns(  # Convert suspended day values to NaN
+                [
+                    pl.when(mask).then(float("nan")).otherwise(pl.col(col)).alias(col)
+                    for col in numeric_columns
+                ]
             )
 
             # Add symbol column
@@ -250,9 +254,7 @@ class AlphaLab:
         return result_df
 
     def save_component_data(
-        self,
-        index_symbol: str,
-        index_components: dict[str, set[str]]
+        self, index_symbol: str, index_components: dict[str, set[str]]
     ) -> None:
         """Save index component data"""
         file_path: Path = self.component_path.joinpath(f"{index_symbol}")
@@ -262,12 +264,9 @@ class AlphaLab:
             for k, v in index_components.items():
                 db[k] = set(v)
 
-    @lru_cache      # noqa
+    @lru_cache  # noqa
     def load_component_data(
-        self,
-        index_symbol: str,
-        start: datetime | str,
-        end: datetime | str
+        self, index_symbol: str, start: datetime | str, end: datetime | str
     ) -> dict[datetime, set[str]]:
         """Load index component data as DataFrame"""
         file_path: Path = self.component_path.joinpath(f"{index_symbol}")
@@ -285,22 +284,19 @@ class AlphaLab:
                 if start <= dt <= end:
                     components = db[key]
                     # 兼容历史 list[str] 数据，统一转换为 set[str]
-                    index_components[dt] = components if isinstance(components, set) else set(components)
+                    index_components[dt] = (
+                        components if isinstance(components, set) else set(components)
+                    )
 
             return index_components
-        
-    @lru_cache 
+
+    @lru_cache
     def load_component_symbols(
-        self,
-        index_symbol: str,
-        start: datetime | str,
-        end: datetime | str
+        self, index_symbol: str, start: datetime | str, end: datetime | str
     ) -> list[str]:
         """Collect index component symbols"""
         index_components: dict[datetime, set[str]] = self.load_component_data(
-            index_symbol,
-            start,
-            end
+            index_symbol, start, end
         )
 
         component_symbols: set[str] = set()
@@ -311,23 +307,20 @@ class AlphaLab:
         return list(component_symbols)
 
     def load_component_filters(
-        self,
-        index_symbol: str,
-        start: datetime | str,
-        end: datetime | str
+        self, index_symbol: str, start: datetime | str, end: datetime | str
     ) -> dict[str, list[tuple[datetime, datetime]]]:
         """Collect index component duration filters"""
         index_components: dict[datetime, set[str]] = self.load_component_data(
-            index_symbol,
-            start,
-            end
+            index_symbol, start, end
         )
 
         # Get all trading dates and sort
         trading_dates: list[datetime] = sorted(index_components.keys())
 
         # Initialize component duration dictionary
-        component_filters: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
+        component_filters: dict[str, list[tuple[datetime, datetime]]] = defaultdict(
+            list
+        )
 
         # 单次扫描，使用集合差分追踪新增与移除，避免 per-symbol 的二重循环
         active_start: dict[str, datetime] = {}
@@ -371,7 +364,7 @@ class AlphaLab:
         long_rate: float,
         short_rate: float,
         size: float,
-        pricetick: float
+        pricetick: float,
     ) -> None:
         """Add contract information"""
         contracts: dict = {}
@@ -384,16 +377,11 @@ class AlphaLab:
             "long_rate": long_rate,
             "short_rate": short_rate,
             "size": size,
-            "pricetick": pricetick
+            "pricetick": pricetick,
         }
 
         with open(self.contract_path, mode="w+", encoding="UTF-8") as f:
-            json.dump(
-                contracts,
-                f,
-                indent=4,
-                ensure_ascii=False
-            )
+            json.dump(contracts, f, indent=4, ensure_ascii=False)
 
     def load_contract_setttings(self) -> dict:
         """Load contract settings"""
@@ -413,14 +401,15 @@ class AlphaLab:
 
     def load_dataset(self, name: str) -> AlphaDataset | None:
         """Load dataset"""
-        #dir_path: Path = self.dataset_path.joinpath(name)
-        return AlphaDataset.load(self.lab_path,name)
+        # dir_path: Path = self.dataset_path.joinpath(name)
+        return AlphaDataset.load(self.lab_path, name)
 
     def remove_dataset(self, name: str) -> bool:
         """Remove dataset"""
         dir_path: Path = self.dataset_path.joinpath(name)
         if dir_path.exists() and dir_path.is_dir():
             import shutil
+
             shutil.rmtree(dir_path)
             return True
         return True

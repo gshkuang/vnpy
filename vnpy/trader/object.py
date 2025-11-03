@@ -5,8 +5,8 @@ Basic data structure used for general trading function in the trading platform.
 from dataclasses import dataclass, field
 from datetime import datetime as Datetime
 
-from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
-
+from .constant import (Direction, Exchange, Interval, Offset, OptionType,
+                       OrderType, Product, Status)
 
 INFO: int = 20
 
@@ -194,7 +194,9 @@ class PositionData(BaseData):
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
-        self.vt_positionid: str = f"{self.gateway_name}.{self.vt_symbol}.{self.direction.value}"
+        self.vt_positionid: str = (
+            f"{self.gateway_name}.{self.vt_symbol}.{self.direction.value}"
+        )
 
 
 @dataclass
@@ -242,19 +244,19 @@ class ContractData(BaseData):
     size: float
     pricetick: float
 
-    min_volume: float = 1                   # minimum order volume
-    max_volume: float | None = None         # maximum order volume
-    stop_supported: bool = False            # whether server supports stop order
-    net_position: bool = False              # whether gateway uses net position volume
-    history_data: bool = False              # whether gateway provides bar history data
+    min_volume: float = 1  # minimum order volume
+    max_volume: float | None = None  # maximum order volume
+    stop_supported: bool = False  # whether server supports stop order
+    net_position: bool = False  # whether gateway uses net position volume
+    history_data: bool = False  # whether gateway provides bar history data
 
     option_strike: float | None = None
-    option_underlying: str | None = None     # vt_symbol of underlying contract
+    option_underlying: str | None = None  # vt_symbol of underlying contract
     option_type: OptionType | None = None
     option_listed: Datetime | None = None
     option_expiry: Datetime | None = None
     option_portfolio: str | None = None
-    option_index: str | None = None          # for identifying options with same strike price
+    option_index: str | None = None  # for identifying options with same strike price
 
     def __post_init__(self) -> None:
         """"""

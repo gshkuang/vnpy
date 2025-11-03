@@ -1,11 +1,10 @@
-from typing import cast
-
 import os
 from pathlib import Path
-import numpy as np
-import polars as pl
+from typing import cast
+
 import lightgbm as lgb
 import matplotlib.pyplot as plt
+import numpy as np
 
 from vnpy.alpha.model import AlphaModel
 
@@ -20,7 +19,7 @@ class LgbModel(AlphaModel):
         num_boost_round: int = 1000,
         early_stopping_rounds: int = 50,
         log_evaluation_period: int = 1,
-        seed: int | None = None
+        seed: int | None = None,
     ):
         """
         Parameters
@@ -42,7 +41,7 @@ class LgbModel(AlphaModel):
             "objective": "mse",
             "learning_rate": learning_rate,
             "num_leaves": num_leaves,
-            "seed": seed
+            "seed": seed,
         }
 
         self.num_boost_round: int = num_boost_round
@@ -67,10 +66,13 @@ class LgbModel(AlphaModel):
             raise FileNotFoundError("train.parquet 或 valid.parquet 不存在于切分目录")
 
         import pandas as pd
+
         df_train = pd.read_parquet(train_path)
         df_valid = pd.read_parquet(valid_path)
 
-        feat_cols = [c for c in df_train.columns if c not in ["datetime", "vt_symbol", "label"]]
+        feat_cols = [
+            c for c in df_train.columns if c not in ["datetime", "vt_symbol", "label"]
+        ]
         X_train = df_train[feat_cols]
         y_train = df_train["label"].values
         X_valid = df_valid[feat_cols]
@@ -95,8 +97,11 @@ class LgbModel(AlphaModel):
         if self.model is None:
             raise ValueError("model is not fitted yet!")
         import pandas as pd
+
         df = pd.read_parquet(parquet_path)
-        feat_cols = [c for c in df.columns if c not in ["datetime", "vt_symbol", "label"]]
+        feat_cols = [
+            c for c in df.columns if c not in ["datetime", "vt_symbol", "label"]
+        ]
         data: np.ndarray = df[feat_cols].to_numpy()
         return cast(np.ndarray, self.model.predict(data))
 
@@ -119,6 +124,6 @@ class LgbModel(AlphaModel):
                 self.model,
                 max_num_features=50,
                 importance_type=importance_type,
-                figsize=(10, 20)
+                figsize=(10, 20),
             )
             ax.set_title(f"Feature Importance ({importance_type})")

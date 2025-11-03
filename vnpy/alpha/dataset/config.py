@@ -13,8 +13,7 @@ windows = cfg["feature_windows"]
 label_cfg = cfg["label"]
 """
 
-from typing import Dict, Any
-
+from typing import Any, Dict
 
 # Default configuration for Alpha158 dataset
 DATASET_CONFIG: Dict[str, Any] = {
@@ -27,10 +26,8 @@ DATASET_CONFIG: Dict[str, Any] = {
     },
     # Time-series window sizes for features
     "feature_windows": [5, 10, 20, 30, 60],
-
     # Ranking/period granularity, default minute ('m')
     "period": "m",
-
     # Label construction parameters
     # label = price(t+forward_shift) / price(t+base_shift) - 1
     "label": {
@@ -39,7 +36,6 @@ DATASET_CONFIG: Dict[str, Any] = {
         "base_shift": -1,
         "type": "return",
     },
-
     # Normalization methods used in feature pipeline
     "normalization": {
         # Column-wise (global) normalization method: 'zscore' or 'robust'
@@ -47,7 +43,6 @@ DATASET_CONFIG: Dict[str, Any] = {
         # Row-wise (cross-sectional) normalization method: 'zscore' or 'robust'
         "row_method": "zscore",
     },
-
     # Splitting configuration for train/valid/test parquet generation
     "splits": {
         "shuffle": True,

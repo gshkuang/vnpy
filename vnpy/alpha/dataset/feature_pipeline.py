@@ -21,31 +21,32 @@ DuckDB + Polars 预处理用于大型因子 Parquet 文件。
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, Optional, Literal, Tuple, Dict
-from vnpy.alpha.logger import logger,log_time_memory
-import duckdb  
-import polars as pl
-from datetime import datetime, timezone
-
-import tqdm
-from vnpy.alpha.dataset.processor import process_stats_ts_norm,process_stats_cs_norm  # 统一处理函数
-from vnpy.alpha.dataset.sql_builder import build_stats_sql, build_split_select_sql  
-import logging
-import psutil
 import time
-import os
-import numpy as np
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Literal, Optional, Tuple
+
+import duckdb
+import polars as pl
+import tqdm
+
+from vnpy.alpha.dataset.processor import (process_stats_cs_norm,  # 统一处理函数
+                                          process_stats_ts_norm)
+from vnpy.alpha.dataset.sql_builder import (build_split_select_sql,
+                                            build_stats_sql)
 from vnpy.alpha.dataset.utility import to_datetime
+from vnpy.alpha.logger import log_time_memory
+
 
 def _auto_detect_feature_cols(sample_file: Path) -> list[str]:
     """Detect feature columns from a sample parquet: exclude keys."""
     schema = pl.scan_parquet(str(sample_file)).collect_schema()
     names = schema.names()
-    return [c for c in names if c not in {"datetime", "vt_symbol","label"}]
+    return [c for c in names if c not in {"datetime", "vt_symbol", "label"}]
+
 
 # 归一化细节函数迁移至processor.process，保留此文件为流程编排
-        
+
 
 def get_ts_stats(
     con: duckdb.DuckDBPyConnection,
@@ -65,16 +66,18 @@ def get_ts_stats(
         fit_start_time=fit_start_time,
         fit_end_time=fit_end_time,
     )
-    
+
     if method == "zscore":
-        df=con.execute(sql_result).pl() 
+        df = con.execute(sql_result).pl()
     else:  # robust
         median_sql, mad_sql = sql_result
         med_df = con.execute(median_sql).pl()
         mad_df = con.execute(mad_sql).pl()
-        df=med_df.join(mad_df, how="cross")
+        df = med_df.join(mad_df, how="cross")
     end = time.time()
-    print(f"Time cost: {end - start}, method: {method}, fit_start_time: {fit_start_time}, fit_end_time: {fit_end_time}")
+    print(
+        f"Time cost: {end - start}, method: {method}, fit_start_time: {fit_start_time}, fit_end_time: {fit_end_time}"
+    )
     return df
 
 
@@ -96,17 +99,20 @@ def process_cs_stats(
         fit_start_time=fit_start_time,
         fit_end_time=fit_end_time,
     )
-    
+
     if method == "zscore":
-        df=con.execute(sql_result).pl()
+        df = con.execute(sql_result).pl()
     else:  # robust
         median_sql, mad_sql = sql_result
         dt_med_df = con.execute(median_sql).pl()
         dt_mad_df = con.execute(mad_sql).pl()
-        df= dt_med_df.join(dt_mad_df, on="datetime", how="inner")
+        df = dt_med_df.join(dt_mad_df, on="datetime", how="inner")
     end = time.time()
-    print(f"Time cost: {end - start}, method: {method}, fit_start_time: {fit_start_time}, fit_end_time: {fit_end_time}")
+    print(
+        f"Time cost: {end - start}, method: {method}, fit_start_time: {fit_start_time}, fit_end_time: {fit_end_time}"
+    )
     return df
+
 
 @log_time_memory
 def comupte_norm_stats(
@@ -117,7 +123,7 @@ def comupte_norm_stats(
     row_method: Literal["zscore", "robust"] = "zscore",
     col_method: Literal["zscore", "robust"] = "robust",
     batch_size=100,
-    con = duckdb.connect()
+    con=duckdb.connect(),
 ) -> None:
     """
     Compute global and per-datetime statistics across all parquet files using DuckDB.
@@ -132,37 +138,40 @@ def comupte_norm_stats(
     parquet_files = sorted(feat_dir.glob("*.parquet"))
     if not parquet_files:
         raise FileNotFoundError(f"No parquet files found in {feat_dir}")
-    
+
     feature_cols = _auto_detect_feature_cols(parquet_files[0])
     features = list(feature_cols)
 
     # ---------- Global stats ----------
     glob_path = str((feat_dir / "*.parquet").as_posix())
     global_df = pl.DataFrame()
-    for idx in range(0,len(features),batch_size):
-        feature_batch = features[idx:idx+batch_size]
-        global_df=global_df.hstack( get_ts_stats(
-            con=con, 
-            glob_path=glob_path, 
-            features=feature_batch, 
-            fit_start_time=fit_start_time,
-            fit_end_time=fit_end_time,
-            method=col_method
-        ))
+    for idx in range(0, len(features), batch_size):
+        feature_batch = features[idx : idx + batch_size]
+        global_df = global_df.hstack(
+            get_ts_stats(
+                con=con,
+                glob_path=glob_path,
+                features=feature_batch,
+                fit_start_time=fit_start_time,
+                fit_end_time=fit_end_time,
+                method=col_method,
+            )
+        )
     global_df.write_parquet(stats_out_dir / "global_stats.parquet")
     # Log stats preview
     print("[Stats][global] shape:", global_df.shape)
 
     # ---------- Per-datetime stats ----------
     dt_df = process_cs_stats(
-        con=con, 
-        glob_path=glob_path, 
-        features=["label"], #只针对label做cs归一化
-        method=row_method
+        con=con,
+        glob_path=glob_path,
+        features=["label"],  # 只针对label做cs归一化
+        method=row_method,
     )
     dt_df.write_parquet(stats_out_dir / "datetime_stats.parquet")
     # Log stats preview
     print("[Stats][datetime] shape:", dt_df.shape)
+
 
 @log_time_memory
 def normalize_feat(
@@ -192,12 +201,12 @@ def normalize_feat(
     dt_stats_path = stats_dir / "datetime_stats.parquet"
     dt_lf = pl.scan_parquet(str(dt_stats_path))
 
-    for file in tqdm.tqdm(parquet_files,desc="Normalizing features"):
+    for file in tqdm.tqdm(parquet_files, desc="Normalizing features"):
         lf = pl.scan_parquet(str(file))
-        lf = process_stats_ts_norm(lf, global_stats_lf,features,col_method)
-        lf = process_stats_cs_norm(lf, dt_lf,["label"], row_method)
-        lf=lf.drop_nans()
-        lf=lf.drop_nulls()
+        lf = process_stats_ts_norm(lf, global_stats_lf, features, col_method)
+        lf = process_stats_cs_norm(lf, dt_lf, ["label"], row_method)
+        lf = lf.drop_nans()
+        lf = lf.drop_nulls()
         out_path = out_dir / file.name
         lf.sink_parquet(str(out_path))
 
@@ -235,8 +244,10 @@ def save_duckdb_splits(
     if not sample_files:
         raise FileNotFoundError(f"No parquet files found in {feat_dir}")
     schema_names = pl.scan_parquet(str(sample_files[0])).collect_schema().names()
-    feature_cols = [c for c in schema_names if c not in {"datetime", "vt_symbol", "label"}]
-    
+    feature_cols = [
+        c for c in schema_names if c not in {"datetime", "vt_symbol", "label"}
+    ]
+
     @log_time_memory
     def _save_period(start: datetime | str, end: datetime | str, name: str) -> None:
         # 选择包含键列 + 特征列 + label，确保下游可用键列
@@ -250,7 +261,7 @@ def save_duckdb_splits(
         )
         df = con.execute(sql).pl()
         df.write_parquet(out_dir / f"{name}.parquet")
-        print(f"[Split][{name}] shape:", df.shape, " start:",start," end:",end)
+        print(f"[Split][{name}] shape:", df.shape, " start:", start, " end:", end)
 
     _save_period(*train_period, name="train")
     _save_period(*valid_period, name="valid")
@@ -268,7 +279,7 @@ def feat_norm_pipeline(
 ) -> None:
     stats_dir.mkdir(parents=True, exist_ok=True)
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     comupte_norm_stats(
         feat_dir=feat_dir,
         stats_out_dir=stats_dir,
@@ -284,8 +295,6 @@ def feat_norm_pipeline(
         row_method=row_method,
         col_method=col_method,
     )
-
-
 
 
 if __name__ == "__main__":
@@ -316,5 +325,3 @@ if __name__ == "__main__":
         shuffle=True,
         seed=42,
     )
-
-
