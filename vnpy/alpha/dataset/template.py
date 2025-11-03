@@ -2,21 +2,17 @@ import time
 from datetime import datetime
 from typing import cast
 from collections.abc import Callable
-from joblib import Parallel, delayed
-from tqdm_joblib import tqdm_joblib
-import os
-import psutil
 import polars as pl
 import pandas as pd
-from tqdm import tqdm
-from alphalens.utils import get_clean_factor_and_forward_returns  # type: ignore
-from alphalens.tears import create_full_tear_sheet  # type: ignore
+from alphalens.utils import get_clean_factor_and_forward_returns
+from alphalens.tears import create_full_tear_sheet  
 import pickle
 from pathlib import Path
 from ..logger import logger,log_time_memory
 from .utility import to_datetime, Segment, FeatProxy
 from .processor import process_lf_drop_na
 from .feature_pipeline import feat_norm_pipeline,save_duckdb_splits
+from .config import DATASET_CONFIG
 class AlphaDataset:
     """Alpha dataset template class"""
 
@@ -42,9 +38,6 @@ class AlphaDataset:
         # 特征集合
         self.features: dict[str, FeatProxy] = {}
         self.label_feature: tuple[str, FeatProxy] | None = None
-
-        # 分段缓存（统一）
-        self.segment_data: dict[Segment, pl.DataFrame] = {}
 
         # 处理器统一（用于 lazy infer/learn）
         self.learn_processors: list[Callable[[pl.LazyFrame], pl.LazyFrame]] = []
@@ -74,6 +67,14 @@ class AlphaDataset:
         feature_cols: list[str] = list(self.features.keys())
         label_cols: list[str] = [self.label_feature[0]] if self.label_feature else []
         return ["datetime", "vt_symbol"]+ feature_cols + label_cols
+    @property
+    def feature_columns(self) -> list[str]:
+        """Return explicit feature column names in order."""
+        return list(self.features.keys())
+    @property
+    def label_column(self) -> str:
+        """Return label column name."""
+        return self.label_feature[0] if self.label_feature else "label"
 
     def add_processor(
         self, processor: Callable[[pl.LazyFrame], pl.LazyFrame]
@@ -124,7 +125,8 @@ class AlphaDataset:
         result_lf = result_lf.select(self.select_columns).sort(["datetime", "vt_symbol"])
         result_lf=process_lf_drop_na(result_lf)
         
-        feat_dir =self.lab_dir.joinpath("feat")
+        paths_cfg = DATASET_CONFIG.get("paths", {})
+        feat_dir = self.lab_dir.joinpath(paths_cfg.get("feat_dir", "feat"))
         feat_dir.mkdir(parents=True, exist_ok=True)
         features_file =  feat_dir.joinpath( symbol+".parquet")
         result_lf.sink_parquet(features_file)
@@ -133,57 +135,30 @@ class AlphaDataset:
         logger.info(f"持久化特征结果 | 数量: {len(tasks)} | 耗时: {t_feat_end - t_feat_start:.3f}s")
 
     def process_features(self):
+        norm_cfg = DATASET_CONFIG.get("normalization", {})
+        split_cfg =DATASET_CONFIG.get("splits", {})
+        paths_cfg =DATASET_CONFIG.get("paths", {})
         feat_norm_pipeline(
-            feat_dir=self.lab_dir.joinpath("feat"),
-            stats_dir=self.lab_dir.joinpath("stats"),
-            out_dir=self.lab_dir.joinpath("feat_norm"),
+            feat_dir=self.lab_dir.joinpath(paths_cfg.get("feat_dir", "feat")),
+            stats_dir=self.lab_dir.joinpath(paths_cfg.get("stats_dir", "stats")),
+            out_dir=self.lab_dir.joinpath(paths_cfg.get("feat_norm_dir", "feat_norm")),
             fit_start=to_datetime(self.data_periods[Segment.TRAIN][0]),
             fit_end=to_datetime(self.data_periods[Segment.TRAIN][1]),
+            row_method=norm_cfg.get("row_method", "zscore"),
+            col_method=norm_cfg.get("col_method", "robust"),
         )
 
         save_duckdb_splits(
-            feat_dir=self.lab_dir.joinpath("feat_norm"),
-            out_dir=self.lab_dir.joinpath("splits"),
+            feat_dir=self.lab_dir.joinpath(paths_cfg.get("feat_norm_dir", "feat_norm")),
+            out_dir=self.lab_dir.joinpath(paths_cfg.get("splits_dir", "splits")),
             train_period=self.data_periods[Segment.TRAIN],
             valid_period=self.data_periods[Segment.VALID],
             test_period=self.data_periods[Segment.TEST],
-            shuffle=True,
-            seed=42,
+            shuffle=split_cfg.get("shuffle", True),
+            seed=split_cfg.get("seed", 42),
         )
-        
-    def _preprocess_feat(self,result_lf:pl.LazyFrame):
-                # 处理器链仅构建 lazy pipeline，最终统一 collect
-        logger.info("开始构建处理器 lazy pipeline")
-        for i, processor in enumerate(self.learn_processors, start=1):
-            result_lf = processor(lf=result_lf)
-        # 统一 collect（默认流式）
-        logger.info(f"开始最终 collect，engine={self.collect_engine}")
-        result_df = result_lf.collect(engine=self.collect_engine)
-
-        # 按周期分段缓存（合并为 segment_data）
-        for seg, (start, end) in self.data_periods.items():
-            seg_df = query_by_time(result_df, start, end)
-            self.segment_data[seg] = seg_df
-
-        logger.info("特征准备完成")
-
-
-    def fetch_feat(self, segment: Segment) -> pl.DataFrame:
-        return self.segment_data[segment]
-
-    def show_feature_performance(self, name: str) -> None:
-        combined_df: pl.DataFrame = pl.concat([
-            self.segment_data[Segment.TRAIN],
-            self.segment_data[Segment.VALID],
-            self.segment_data[Segment.TEST],
-        ])
-        signal: pl.DataFrame = combined_df.select(
-            ["datetime", "vt_symbol", pl.col(name).alias("signal")]
-        ).sort(["datetime", "vt_symbol"])
-        self.show_signal_performance(signal)
-
-
-    def show_signal_performance(self, signal: pl.DataFrame,quantiles=2) -> None:
+    
+    def show_signal_performance(self, signal: pl.DataFrame,quantiles=10,signal_freq=None) -> None:
         """
         Perform performance analysis for prediction signals
         """
@@ -200,13 +175,17 @@ class AlphaDataset:
         signal_s: pd.Series = signal_df["signal"]
         freq: str = pd.infer_freq(signal_df.index.levels[0])
         logger.info(f"infer freq: {freq}")
-        signal_df.index.levels[0].freq = freq
+        if freq:
+            signal_s.index.levels[0].freq = freq
+        elif signal_freq:
+            signal_s.index.levels[0].freq = signal_freq
 
         # Extract price
         price_df: pd.DataFrame = df.select(
             ["datetime", "vt_symbol", "close"]
         ).to_pandas()
         price_df = price_df.pivot(index="datetime", columns="vt_symbol", values="close")
+        logger.info(f"price_df len: {len(price_df.index)} | signal_s len: {len(signal_s.index)}")
         # Merge data
         clean_data: pd.DataFrame = get_clean_factor_and_forward_returns(
             signal_s, price_df, max_loss=1.0, quantiles=quantiles
@@ -221,14 +200,9 @@ class AlphaDataset:
         """
         # 确保目录存在
         path.mkdir(parents=True, exist_ok=True)
-
-        # 保存元数据（分段与 schema）
-        periods: dict[str, tuple[str, str]] = {
-            seg.name: period for seg, period in self.data_periods.items()
-        }
         meta = {
             "schema_version": 2,
-            "periods": periods
+            "periods": {k.name: v for k, v in self.data_periods.items()}
         }
         with open(path.joinpath("meta.pkl"), "wb") as f:
             pickle.dump(meta, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -237,11 +211,6 @@ class AlphaDataset:
         if isinstance(self.df, pl.DataFrame) and self.df.height > 0:
             self.df.write_parquet(path.joinpath("raw_df.parquet"))
 
-        # 仅保存按周期的处理后数据，三个 parquet
-        for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
-            df_obj = self.segment_data.get(seg)
-            if isinstance(df_obj, pl.DataFrame):
-                df_obj.write_parquet(path.joinpath(f"segment_{seg.name.lower()}.parquet"))
 
     @classmethod
     def load(cls, path: Path,name:str) -> "AlphaDataset":
@@ -264,26 +233,10 @@ class AlphaDataset:
         # 原始数据文件路径
         raw_file = datapath.joinpath("raw_df.parquet")
 
-        # 读入各段 parquet
-        segment_map: dict[Segment, pl.DataFrame] = {}
-        for seg in [Segment.TRAIN, Segment.VALID, Segment.TEST]:
-            file = datapath.joinpath(f"segment_{seg.name.lower()}.parquet")
-            if file.exists():
-                segment_map[seg] = pl.read_parquet(file)
-            else:
-                segment_map[seg] = pl.DataFrame()
-
         # 构造 df：优先读取原始数据；否则用三段合并（用于保持构造签名与基本功能）
-        if raw_file.exists():
-            df = pl.read_parquet(raw_file)
-        else:
-            non_empty = [segment_map[s] for s in [Segment.TRAIN, Segment.VALID, Segment.TEST] if segment_map[s].height > 0]
-            df = pl.concat(non_empty, how="diagonal_relaxed") if non_empty else pl.DataFrame()
+        df = pl.read_parquet(raw_file)
 
         dataset = cls(df, train, valid, test,path)
-
-        # 设置统一的分段缓存
-        dataset.segment_data = segment_map
 
         return dataset
 

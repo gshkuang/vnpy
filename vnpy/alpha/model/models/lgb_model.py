@@ -7,7 +7,6 @@ import polars as pl
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 
-from vnpy.alpha.dataset import AlphaDataset, Segment
 from vnpy.alpha.model import AlphaModel
 
 
@@ -52,104 +51,14 @@ class LgbModel(AlphaModel):
 
         self.model: lgb.Booster | None = None
 
-    def _prepare_data(self, dataset: AlphaDataset) -> list[lgb.Dataset]:
-        """
-        Prepare data for training and validation
+    # Legacy _prepare_data(dataset) removed. Use splits-based training.
 
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            The dataset containing features and labels
+    # Legacy fit(dataset) removed. Use fit(splits_dir).
 
-        Returns
-        -------
-        list[lgb.Dataset]
-            List of LightGBM datasets for training and validation
-        """
-        ds: list[lgb.Dataset] = []
-
-        # Process training and validation separately
-        for segment in [Segment.TRAIN, Segment.VALID]:
-            # Get data for learning
-            df: pl.DataFrame = dataset.fetch_feat(segment)
-            #df = df.sort(["datetime", "vt_symbol"])
-
-            # Convert to numpy arrays
-            data = df.select(df.columns[2: -1]).to_pandas()
-            label = np.array(df["label"])
-
-            # Add training data
-            ds.append(lgb.Dataset(data, label=label))
-
-        return ds
-
-    def fit(self, dataset: AlphaDataset) -> None:
-        """
-        Fit the model using the dataset
-
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            The dataset containing features and labels
-
-        Returns
-        -------
-        None
-        """
-        # Prepare task data
-        ds: list[lgb.Dataset] = self._prepare_data(dataset)
-
-        # Execute model training
-        self.model = lgb.train(
-            self.params,
-            ds[0],
-            num_boost_round=self.num_boost_round,
-            valid_sets=ds,
-            valid_names=["train", "valid"],
-            callbacks=[
-                lgb.early_stopping(self.early_stopping_rounds),      # Early stopping callback
-                lgb.log_evaluation(self.log_evaluation_period)       # Logging callback
-            ]
-        )
-
-    def predict(self, dataset: AlphaDataset, segment: Segment) -> np.ndarray:
-        """
-        Make predictions using the trained model
-
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            The dataset containing features
-        segment : Segment
-            The segment to make predictions on
-
-        Returns
-        -------
-        np.ndarray
-            Prediction results
-
-        Raises
-        ------
-        ValueError
-            If the model has not been fitted yet
-        """
-        # Check if model exists
-        if self.model is None:
-            raise ValueError("model is not fitted yet!")
-
-        # Get data for inference
-        df: pl.DataFrame = dataset.fetch_feat(segment)
-        df = df.sort(["datetime", "vt_symbol"])
-
-        # Convert to numpy array
-        data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
-
-        # Return prediction results
-        result: np.ndarray = cast(np.ndarray, self.model.predict(data))
-        return result
+    # Legacy predict(dataset, segment) removed. Use predict(parquet_path).
 
     # ===== 基于 Parquet 切分的训练/预测 =====
-    def fit_splits(self, splits_dir: str | os.PathLike) -> None:
+    def fit(self, splits_dir: str | os.PathLike) -> None:
         """从保存的切分文件 `train.parquet` 与 `valid.parquet` 进行训练。"""
         splits_path = Path(splits_dir)
         train_path = splits_path / "train.parquet"
@@ -181,7 +90,7 @@ class LgbModel(AlphaModel):
             ],
         )
 
-    def predict_splits(self, parquet_path: str | os.PathLike) -> np.ndarray:
+    def predict(self, parquet_path: str | os.PathLike) -> np.ndarray:
         """从保存的切分文件（如 `test.parquet`）读取特征并预测。"""
         if self.model is None:
             raise ValueError("model is not fitted yet!")

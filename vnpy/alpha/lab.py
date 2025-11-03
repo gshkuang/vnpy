@@ -204,14 +204,14 @@ class AlphaLab:
                 
             # Specify data types
             df = df.with_columns(
-                pl.col("open").cast(pl.Float32),
-                pl.col("high").cast(pl.Float32),
-                pl.col("low").cast(pl.Float32),
-                pl.col("close").cast(pl.Float32),
-                pl.col("volume").cast(pl.Float32),
-                pl.col("turnover").cast(pl.Float32),
-                pl.col("open_interest").cast(pl.Float32),
-                (pl.col("turnover") / pl.col("volume")).cast(pl.Float32).alias("vwap")
+                pl.col("open"),
+                pl.col("high"),
+                pl.col("low"),
+                pl.col("close"),
+                pl.col("volume"),
+                pl.col("turnover"),
+                pl.col("open_interest"),
+                (pl.col("turnover") / pl.col("volume")).alias("vwap")
             )
 
             # Check for empty data
@@ -288,7 +288,8 @@ class AlphaLab:
                     index_components[dt] = components if isinstance(components, set) else set(components)
 
             return index_components
-
+        
+    @lru_cache 
     def load_component_symbols(
         self,
         index_symbol: str,
@@ -431,36 +432,35 @@ class AlphaLab:
         return names
 
     def save_model(self, name: str, model: AlphaModel) -> None:
-        """Save model"""
-        file_path: Path = self.model_path.joinpath(f"{name}.pkl")
-
-        with open(file_path, mode="wb") as f:
-            pickle.dump(model, f)
+        """Save model using joblib for portability"""
+        file_path: Path = self.model_path.joinpath(f"{name}.joblib")
+        joblib.dump(model, file_path)
 
     def load_model(self, name: str) -> AlphaModel | None:
-        """Load model"""
-        file_path: Path = self.model_path.joinpath(f"{name}.pkl")
+        """Load model saved by joblib"""
+        file_path: Path = self.model_path.joinpath(f"{name}.joblib")
         if not file_path.exists():
             logger.error(f"Model file {name} does not exist")
             return None
-
-        with open(file_path, mode="rb") as f:
-            model: AlphaModel = pickle.load(f)
+        try:
+            model: AlphaModel = joblib.load(file_path)
             return model
+        except Exception as e:
+            logger.error(f"Failed to load model {name}: {e}")
+            return None
 
     def remove_model(self, name: str) -> bool:
         """Remove model"""
-        file_path: Path = self.model_path.joinpath(f"{name}.pkl")
+        file_path: Path = self.model_path.joinpath(f"{name}.joblib")
         if not file_path.exists():
             logger.error(f"Model file {name} does not exist")
             return False
-
         file_path.unlink()
         return True
 
     def list_all_models(self) -> list[str]:
         """List all models"""
-        return [file.stem for file in self.model_path.glob("*.pkl")]
+        return [file.stem for file in self.model_path.glob("*.joblib")]
 
     def save_signal(self, name: str, signal: pl.DataFrame) -> None:
         """Save signal"""
@@ -489,4 +489,4 @@ class AlphaLab:
 
     def list_all_signals(self) -> list[str]:
         """List all signals"""
-        return [file.stem for file in self.model_path.glob("*.parquet")]
+        return [file.stem for file in self.signal_path.glob("*.parquet")]

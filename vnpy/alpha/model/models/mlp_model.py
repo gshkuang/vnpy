@@ -13,7 +13,6 @@ import torch.nn as nn
 import torch.optim as optim
 
 from vnpy.alpha import (
-    AlphaDataset,
     AlphaModel,
     Segment,
     logger
@@ -136,96 +135,7 @@ class MlpModel(AlphaModel):
             eps=1e-08,
         )
 
-    def fit(
-        self,
-        dataset: AlphaDataset,
-        evaluation_results: dict | None = None,
-    ) -> None:
-        """
-        Train the multi-layer perceptron model
-
-        Trains the MLP model using the given dataset, with main steps including:
-        1. Preparing training and validation data
-        2. Iteratively training for multiple steps
-        3. Evaluating model performance at fixed intervals
-        4. Implementing early stopping to prevent overfitting
-
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            Dataset object containing training data
-        evaluation_results : dict
-            Dictionary for storing evaluation metrics during training
-        """
-        # Initialize a new dictionary if evaluation_results is None
-        if evaluation_results is None:
-            evaluation_results = {}
-
-        # Dictionary to store training and validation data
-        train_valid_data: dict[str, dict] = defaultdict(dict)
-
-        # Process training and validation sets separately
-        for segment in [Segment.TRAIN, Segment.VALID]:
-            # Get learning data and sort by time and trading code
-            df: pl.DataFrame = dataset.fetch_feat(segment)
-            print(df.shape)
-            #df = df.sort(["datetime", "vt_symbol"])
-
-            # Extract features and labels
-            # features = df.select(df.columns[2: -1]).to_numpy()
-            # labels = np.array(df["label"])
-
-            # Store feature and label data
-            train_valid_data["x"][segment] = df.select(df.columns[2: -1]).to_torch(dtype=pl.Float32).to(self.device)
-            train_valid_data["y"][segment] = torch.from_numpy( np.array(df["label"])).float().to(self.device)
-
-
-            # Initialize evaluation results list
-            evaluation_results[segment] = []
-            self.feature_names = df.columns[2:-1]
-
-        # Initialize training state
-        early_stop_count: int = 0           # Number of steps without performance improvement
-        train_loss: float = 0               # Current training loss
-        best_valid_score: float = np.inf    # Best validation loss
-        best_params = None                  # Best model parameters
-
-        train_samples: int = train_valid_data["y"][Segment.TRAIN].shape[0]
-        logger.info(f"开始训练模型, 总样本数: {train_samples}")
-
-        # Iterate through training steps
-        for step in range(1, self.n_epochs + 1):
-            # Check if early stopping condition is met
-            if early_stop_count >= self.early_stop_rounds:
-                logger.info("达到早停条件,训练结束")
-                break
-
-            # Train one batch
-            batch_loss = self._train_step(train_valid_data, train_samples)
-            train_loss += batch_loss
-
-            # Print training progress every 10 steps
-            if step % 10 == 0:
-                logger.info(f"Step {step}/{self.n_epochs}, Batch Loss: {batch_loss:.6f}")
-
-            # Periodically evaluate the model
-            if step % self.eval_steps == 0 or step == self.n_epochs:
-                early_stop_count, best_valid_score, best_params = self._evaluate_step(
-                    train_valid_data,
-                    evaluation_results,
-                    step,
-                    train_loss,
-                    early_stop_count,
-                    best_valid_score
-                )
-                train_loss = 0
-
-        # Mark model as trained
-        self.fitted = True
-
-        # Load best model parameters
-        if best_params:
-            self.model.load_state_dict(best_params)
+    # Legacy dataset-based fit removed. Use fit(splits_dir) instead.
 
     def _train_step(
         self,
@@ -387,34 +297,10 @@ class MlpModel(AlphaModel):
         else:
             return torch.cat(predictions, dim=0)
 
-    def predict(self, dataset: AlphaDataset, segment: Segment) -> np.ndarray:
-        """
-        Model prediction interface
-
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            Prediction dataset
-        segment : Segment
-            Dataset segment
-
-        Returns
-        -------
-        np.ndarray
-            Prediction result array
-        """
-        if not self.fitted:
-            raise ValueError("Model has not been trained yet!")
-
-        df: pl.DataFrame = dataset.fetch_feat(segment)
-        df = df.sort(["datetime", "vt_symbol"])
-
-        data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
-
-        return cast(np.ndarray, self._predict_batch(torch.Tensor(data)))
+    # Legacy dataset-based predict removed. Use predict(parquet_path) instead.
 
     # ===== 基于 Parquet 切分的训练/预测 =====
-    def fit_splits(self, splits_dir: str | os.PathLike) -> None:
+    def fit(self, splits_dir: str | os.PathLike) -> None:
         """从保存的切分文件 `train.parquet` 与 `valid.parquet` 进行训练。"""
         splits_path = Path(splits_dir)
         train_path = splits_path / "train.parquet"
@@ -422,20 +308,21 @@ class MlpModel(AlphaModel):
         if not train_path.exists() or not valid_path.exists():
             raise FileNotFoundError("train.parquet 或 valid.parquet 不存在于切分目录")
 
-        df_train = pd.read_parquet(train_path)
-        df_valid = pd.read_parquet(valid_path)
+        # 使用 Polars scan_parquet 流式读取，减少内存峰值
+        lf_train = pl.scan_parquet(str(train_path))
+        lf_valid = pl.scan_parquet(str(valid_path))
 
-        # 统一提取特征与标签（去掉 label，其他列全部作为特征）
-        feat_cols = [c for c in df_train.columns if c not in ["datetime", "vt_symbol", "label"]]
-        print(df_train.shape, df_valid.shape)
-        df_train=df_train.dropna()
-        print(df_train.dropna().shape)
-        print(df_valid.head())
-        print(df_valid.dropna().shape)
-        x_train = torch.from_numpy(df_train[feat_cols].values).float().to(self.device)
-        y_train = torch.from_numpy(df_train["label"].values.reshape(-1)).float().to(self.device)
-        x_valid = torch.from_numpy(df_valid[feat_cols].values).float().to(self.device)
-        y_valid = torch.from_numpy(df_valid["label"].values.reshape(-1)).float().to(self.device)
+        cols = lf_train.columns
+        feat_cols = [c for c in cols if c not in ["datetime", "vt_symbol", "label"]]
+
+        # 收集为 numpy（可进一步分块，但先一次 collect）
+        df_train = lf_train.select(feat_cols + ["label"]).drop_nulls().collect()
+        df_valid = lf_valid.select(feat_cols + ["label"]).drop_nulls().collect()
+
+        x_train = torch.from_numpy(df_train.select(feat_cols).to_numpy()).float().to(self.device)
+        y_train = torch.from_numpy(df_train["label"].to_numpy().reshape(-1)).float().to(self.device)
+        x_valid = torch.from_numpy(df_valid.select(feat_cols).to_numpy()).float().to(self.device)
+        y_valid = torch.from_numpy(df_valid["label"].to_numpy().reshape(-1)).float().to(self.device)
 
         self.feature_names = feat_cols
 
@@ -481,13 +368,17 @@ class MlpModel(AlphaModel):
             self.model.load_state_dict(best_params)
         self.fitted = True
 
-    def predict_splits(self, parquet_path: str | os.PathLike) -> np.ndarray:
+    def predict(self, parquet_path: str | os.PathLike) -> np.ndarray:
         """从保存的切分文件（如 `test.parquet`）读取特征并预测。"""
         if not self.fitted:
             raise ValueError("model is not fitted yet!")
-        df = pd.read_parquet(parquet_path)
-        feat_cols = [c for c in df.columns if c not in ["datetime", "vt_symbol", "label"]]
-        data = torch.from_numpy(df[feat_cols].values).float()
+        # 使用 scan_parquet 流式读取，保留键列以便外层可用
+        lf = pl.scan_parquet(str(parquet_path))
+        lf = lf.sort(["datetime", "vt_symbol"])
+        cols = lf.columns
+        feat_cols = [c for c in cols if c not in ["datetime", "vt_symbol", "label"]]
+        df = lf.select(feat_cols).collect()
+        data = torch.from_numpy(df.to_numpy()).float()
         return cast(np.ndarray, self._predict_batch(data))
 
     def _check_tensor_nan(self, tensor: torch.Tensor, name: str) -> None:

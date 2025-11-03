@@ -169,6 +169,8 @@ def normalize_feat(
     feat_dir: Path,
     stats_dir: Path,
     out_dir: Path,
+    row_method: Literal["zscore", "robust"] = "zscore",
+    col_method: Literal["zscore", "robust"] = "robust",
 ) -> None:
     """
     Sequentially normalize each parquet with Polars using precomputed stats.
@@ -192,10 +194,10 @@ def normalize_feat(
 
     for file in tqdm.tqdm(parquet_files,desc="Normalizing features"):
         lf = pl.scan_parquet(str(file))
-        lf = process_stats_ts_norm(lf, global_stats_lf,features,"robust")
-        lf = process_stats_cs_norm(lf, dt_lf,["label"], "zscore")
-        # lf=lf.drop_nans()
-        # lf=lf.drop_nulls()
+        lf = process_stats_ts_norm(lf, global_stats_lf,features,col_method)
+        lf = process_stats_cs_norm(lf, dt_lf,["label"], row_method)
+        lf=lf.drop_nans()
+        lf=lf.drop_nulls()
         out_path = out_dir / file.name
         lf.sink_parquet(str(out_path))
 
@@ -260,7 +262,9 @@ def feat_norm_pipeline(
     stats_dir: Path,
     out_dir: Path,
     fit_start: Optional[datetime] = None,
-    fit_end: Optional[datetime] = None
+    fit_end: Optional[datetime] = None,
+    row_method: Literal["zscore", "robust"] = "zscore",
+    col_method: Literal["zscore", "robust"] = "robust",
 ) -> None:
     stats_dir.mkdir(parents=True, exist_ok=True)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -269,12 +273,16 @@ def feat_norm_pipeline(
         feat_dir=feat_dir,
         stats_out_dir=stats_dir,
         fit_start_time=fit_start,
-        fit_end_time=fit_end
+        fit_end_time=fit_end,
+        row_method=row_method,
+        col_method=col_method,
     )
     normalize_feat(
         feat_dir=feat_dir,
         stats_dir=stats_dir,
         out_dir=out_dir,
+        row_method=row_method,
+        col_method=col_method,
     )
 
 

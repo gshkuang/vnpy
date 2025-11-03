@@ -128,6 +128,7 @@ class BacktestingEngine:
 
         # Load historical data for each symbol
         empty_symbols: list[str] = []
+        sample: BarData | None = None
         for vt_symbol in tqdm(self.vt_symbols, total=len(self.vt_symbols)):
             data: list[BarData] = self.lab.load_bar_data(
                 vt_symbol, self.interval, self.start, self.end
@@ -136,6 +137,8 @@ class BacktestingEngine:
             for bar in data:
                 self.dts.add(bar.datetime)
                 self.history_data[(bar.datetime, vt_symbol)] = bar
+                if not sample:
+                    sample = bar
 
             data_count = len(data)
             if not data_count:
@@ -147,6 +150,7 @@ class BacktestingEngine:
         logger.info(
             f"所有历史数据加载完成，共{len(self.vt_symbols)-len(empty_symbols)}个合约"
         )
+        logger.info(f"历史数据时间范围：{min(self.dts)} - {max(self.dts)},sample;{sample}")
 
     def run_backtesting(self) -> None:
         """Start backtesting"""

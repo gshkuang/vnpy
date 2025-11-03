@@ -1,6 +1,7 @@
 import polars as pl
 
 from vnpy.alpha import AlphaDataset
+from vnpy.alpha.dataset.config import DATASET_CONFIG
 from vnpy.alpha.dataset.utility import FeatProxy
 from vnpy.alpha.dataset.ts_function import (
     ts_delay, ts_min, ts_max,
@@ -35,8 +36,9 @@ class Alpha158(AlphaDataset):
                 test_period=test_period,
                 lab_dir=lab_dir,
             )
-
-
+            # Load config
+            cfg = DATASET_CONFIG
+        
             o = FeatProxy.col2proxy(self.df, "open")
             h = FeatProxy.col2proxy(self.df, "high")
             l = FeatProxy.col2proxy(self.df, "low")
@@ -60,7 +62,7 @@ class Alpha158(AlphaDataset):
                 self.add_feature(f"{field_name}_0", dp_field / c)
 
             # Time series features
-            windows: list[int] = [5, 10, 20, 30, 60]
+            windows: list[int] = cfg.get("feature_windows", [5, 10, 20, 30, 60])
 
             for w in windows:
                 self.add_feature(f"roc_{w}", ts_delay(c, w) / c)
@@ -176,6 +178,14 @@ class Alpha158(AlphaDataset):
                     (ts_sum(ts_greater(v - ts_delay(v, 1), 0), w) - ts_sum(ts_greater(ts_delay(v, 1) - v, 0), w)) / (ts_sum(ts_abs(v - ts_delay(v, 1)), w) + 1e-12)
                 )
 
-            # Set label
-            label = ts_delay(c, -3) / ts_delay(c, -1) - 1
+            # Set label from config
+            label_cfg = cfg.get("label", {})
+            base_field = label_cfg.get("base_field", "close")
+            forward_shift = label_cfg.get("forward_shift", -3)
+            base_shift = label_cfg.get("base_shift", -1)
+
+            base_proxy = {
+                "open": o, "high": h, "low": l, "close": c, "vwap": vwap
+            }.get(base_field, c)
+            label = ts_delay(base_proxy, forward_shift) / ts_delay(base_proxy, base_shift) - 1
             self.set_label(label)

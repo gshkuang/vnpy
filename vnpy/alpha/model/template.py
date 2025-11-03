@@ -1,25 +1,24 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any
-
+import os
 import numpy as np
-
-from vnpy.alpha.dataset import AlphaDataset, Segment
 
 
 class AlphaModel(metaclass=ABCMeta):
     """Template class for machine learning algorithms"""
 
     @abstractmethod
-    def fit(self, dataset: AlphaDataset) -> None:
+    def fit(self, splits_dir: str | os.PathLike) -> None:
         """
-        Fit the model with dataset
+        Train the model using pre-split parquet files located in `splits_dir`.
+        Expected files: `train.parquet` and `valid.parquet`.
         """
         pass
 
     @abstractmethod
-    def predict(self, dataset: AlphaDataset, segment: Segment) -> np.ndarray:
+    def predict(self, parquet_path: str | os.PathLike) -> np.ndarray:
         """
-        Make predictions using the model
+        Make predictions using a single parquet file (e.g., `test.parquet`).
         """
         pass
 

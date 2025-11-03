@@ -5,7 +5,6 @@ import polars as pl
 from sklearn.linear_model import Lasso      # type: ignore
 
 from vnpy.alpha import (
-    AlphaDataset,
     AlphaModel,
     Segment,
     logger
@@ -39,80 +38,12 @@ class LassoModel(AlphaModel):
 
         self.feature_names: list[str] = []
 
-    def fit(self, dataset: AlphaDataset) -> None:
-        """
-        Fit the model with dataset
+    # Legacy fit(dataset) removed. Use fit(splits_dir) instead.
 
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            The dataset used for training
-        """
-        # Get training data
-        df_train: pl.DataFrame = dataset.fetch_feat(Segment.TRAIN)
-        df_valid: pl.DataFrame = dataset.fetch_feat(Segment.VALID)
-
-        # Merge data, remove duplicates and sort
-        df_train = pl.concat([df_train, df_valid])
-        df_train = df_train.unique(subset=["datetime", "vt_symbol"])
-        df_train = df_train.sort(["datetime", "vt_symbol"])
-
-        # Extract feature names
-        self.feature_names = df_train.columns[2:-1]
-
-        # Convert to numpy arrays
-        X: np.ndarray = df_train.select(self.feature_names).to_numpy()
-        y: np.ndarray = np.array(df_train["label"])
-
-        # Create and train the model
-        self.model = Lasso(
-            alpha=self.alpha,
-            max_iter=self.max_iter,
-            random_state=self.random_state,
-            fit_intercept=False,
-            copy_X=False
-        )
-        self.model.fit(X, y)
-
-    def predict(self, dataset: AlphaDataset, segment: Segment) -> np.ndarray:
-        """
-        Make predictions using the model
-
-        Parameters
-        ----------
-        dataset : AlphaDataset
-            The dataset used for prediction
-        segment : Segment
-            The segment of data to use for prediction
-
-        Returns
-        -------
-        np.ndarray
-            Prediction results
-
-        Raises
-        ------
-        ValueError
-            If the model has not been fitted yet
-        """
-        # Check if model exists
-        if self.model is None:
-            raise ValueError("model is not fitted yet!")
-
-        # Get data for prediction
-        df: pl.DataFrame = dataset.fetch_feat(segment)
-        df = df.sort(["datetime", "vt_symbol"])
-
-        # Convert to numpy array
-        data: np.ndarray = df.select(df.columns[2: -1]).to_numpy()
-
-        # Return prediction results
-        result: np.ndarray = self.model.predict(data)
-
-        return result
+    # Legacy predict(dataset, segment) removed. Use predict(parquet_path) instead.
 
     # ===== 基于 Parquet 切分的训练/预测 =====
-    def fit_splits(self, splits_dir: str | os.PathLike) -> None:
+    def fit(self, splits_dir: str | os.PathLike) -> None:
         """从保存的切分文件 `train.parquet` 与 `valid.parquet` 进行训练。"""
         splits_path = Path(splits_dir)
         train_path = splits_path / "train.parquet"
@@ -139,7 +70,7 @@ class LassoModel(AlphaModel):
         )
         self.model.fit(X, y)
 
-    def predict_splits(self, parquet_path: str | os.PathLike) -> np.ndarray:
+    def predict(self, parquet_path: str | os.PathLike) -> np.ndarray:
         """从保存的切分文件（如 `test.parquet`）读取特征并预测。"""
         if self.model is None:
             raise ValueError("model is not fitted yet!")
