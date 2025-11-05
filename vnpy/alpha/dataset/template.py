@@ -13,7 +13,7 @@ from alphalens.utils import get_clean_factor_and_forward_returns
 from ..logger import log_time_memory, logger
 from .config import DATASET_CONFIG
 from .feature_pipeline import feat_norm_pipeline, save_duckdb_splits
-from .processor import process_lf_drop_na
+from .processor import process_full_drop_na
 from .utility import FeatProxy, Segment, to_datetime
 
 
@@ -133,7 +133,7 @@ class AlphaDataset:
         result_lf = result_lf.select(self.select_columns).sort(
             ["datetime", "vt_symbol"]
         )
-        result_lf = process_lf_drop_na(result_lf)
+        result_lf = process_full_drop_na(result_lf)
 
         paths_cfg = DATASET_CONFIG.get("paths", {})
         feat_dir = self.lab_dir.joinpath(paths_cfg.get("feat_dir", "feat"))

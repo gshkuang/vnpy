@@ -2,12 +2,33 @@ from abc import ABC, abstractmethod
 
 from vnpy.event import Event, EventEngine
 
-from .event import (EVENT_ACCOUNT, EVENT_CONTRACT, EVENT_LOG, EVENT_ORDER,
-                    EVENT_POSITION, EVENT_QUOTE, EVENT_TICK, EVENT_TRADE)
-from .object import (AccountData, BarData, CancelRequest, ContractData,
-                     Exchange, HistoryRequest, LogData, OrderData,
-                     OrderRequest, PositionData, QuoteData, QuoteRequest,
-                     SubscribeRequest, TickData, TradeData)
+from .event import (
+    EVENT_ACCOUNT,
+    EVENT_CONTRACT,
+    EVENT_LOG,
+    EVENT_ORDER,
+    EVENT_POSITION,
+    EVENT_QUOTE,
+    EVENT_TICK,
+    EVENT_TRADE,
+)
+from .object import (
+    AccountData,
+    BarData,
+    CancelRequest,
+    ContractData,
+    Exchange,
+    HistoryRequest,
+    LogData,
+    OrderData,
+    OrderRequest,
+    PositionData,
+    QuoteData,
+    QuoteRequest,
+    SubscribeRequest,
+    TickData,
+    TradeData,
+)
 
 
 class BaseGateway(ABC):

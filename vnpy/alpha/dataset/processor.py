@@ -5,7 +5,7 @@ import polars as pl
 from .utility import to_datetime
 
 
-def process_lf_drop_na(
+def process_full_drop_na(
     lf: pl.LazyFrame, names: list[str] | None = None
 ) -> pl.LazyFrame:
     """Remove rows with missing values (lazy in/out)."""
@@ -14,7 +14,7 @@ def process_lf_drop_na(
     return lf.with_columns(pl.col(names).fill_nan(None)).drop_nulls(subset=names)
 
 
-def process_lf_fill_na(
+def process_full_fill_na(
     lf: pl.LazyFrame, fill_value: float, fill_label: bool = False
 ) -> pl.LazyFrame:
     """Fill missing values (lazy in/out)."""
@@ -22,7 +22,7 @@ def process_lf_fill_na(
     return lf.with_columns(target.fill_null(fill_value).fill_nan(fill_value))
 
 
-def process_lf_cs_norm(
+def process_full_cs_norm(
     lf: pl.LazyFrame, names: list[str], method: str  # robust/zscore
 ) -> pl.LazyFrame:
     """Cross-sectional normalization (lazy in/out)."""
@@ -75,7 +75,7 @@ def process_lf_cs_norm(
         return with_dev.with_columns(exprs).drop(drop_cols)
 
 
-def process_lf_robust_zscore_norm(
+def process_full_robust_zscore_norm(
     lf: pl.LazyFrame,
     fit_start_time: datetime | str | None = None,
     fit_end_time: datetime | str | None = None,
@@ -121,7 +121,7 @@ def process_lf_robust_zscore_norm(
     return joined.with_columns(norm_exprs).drop(drop_cols)
 
 
-def process_lf_cs_rank_norm(lf: pl.LazyFrame, names: list[str]) -> pl.LazyFrame:
+def process_full_cs_rank_norm(lf: pl.LazyFrame, names: list[str]) -> pl.LazyFrame:
     exprs = [
         (
             (pl.col(c).rank("average").over("datetime") / pl.count().over("datetime"))
@@ -133,7 +133,7 @@ def process_lf_cs_rank_norm(lf: pl.LazyFrame, names: list[str]) -> pl.LazyFrame:
     return lf.with_columns(exprs)
 
 
-def process_stats_ts_norm(
+def process_batch_ts_norm(
     lf: pl.LazyFrame,
     stats_lf: pl.LazyFrame,
     names: list[str],
@@ -155,12 +155,26 @@ def process_stats_ts_norm(
     return joined.with_columns(exprs).drop(drop_cols)
 
 
-def process_stats_cs_norm(
+def process_batch_cs_norm(
     lf: pl.LazyFrame,
     cs_stats_lf: pl.LazyFrame,
     names: list[str],
-    method: str,  # robust/zscore
+    method: str,  # robust/zscore/rank
 ) -> pl.LazyFrame:
+    if method == "rank":
+        # 预期 cs_stats_lf 提供了按 (datetime, vt_symbol) 的 rank 列：label_rank
+        joined = lf.join(cs_stats_lf, on=["datetime", "vt_symbol"], how="left")
+        exprs: list[pl.Expr] = []
+        # 当前仅对 label 做 rank
+        if "label" in names:
+            exprs.append(pl.col("label_rank").alias("label"))
+            result = joined.with_columns(exprs)
+            # 若存在临时列则删除
+            if "label_rank" in result.collect_schema().names():
+                return result.drop(["label_rank"])  # type: ignore[arg-type]
+            return result
+        # 若未来扩展为通用 <col>_rank，则回退为原始行为
+        return joined
     joined = lf.join(cs_stats_lf, on="datetime", how="left")
     exprs: list[pl.Expr] = []
     if method == "zscore":

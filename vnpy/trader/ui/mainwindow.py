@@ -16,10 +16,21 @@ from ..engine import BaseApp, MainEngine
 from ..locale import _
 from ..utility import TRADER_DIR, get_icon_path
 from .qt import QtCore, QtGui, QtWidgets
-from .widget import (AboutDialog, AccountMonitor, ActiveOrderMonitor,
-                     BaseMonitor, ConnectDialog, ContractManager, GlobalDialog,
-                     LogMonitor, OrderMonitor, PositionMonitor, TickMonitor,
-                     TradeMonitor, TradingWidget)
+from .widget import (
+    AboutDialog,
+    AccountMonitor,
+    ActiveOrderMonitor,
+    BaseMonitor,
+    ConnectDialog,
+    ContractManager,
+    GlobalDialog,
+    LogMonitor,
+    OrderMonitor,
+    PositionMonitor,
+    TickMonitor,
+    TradeMonitor,
+    TradingWidget,
+)
 
 WidgetType = TypeVar("WidgetType", bound="QtWidgets.QWidget")
 

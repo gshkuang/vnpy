@@ -1,7 +1,9 @@
 from vnpy_ctabacktester import CtaBacktesterApp
+
 # from vnpy_paperaccount import PaperAccountApp
 from vnpy_ctastrategy import CtaStrategyApp
 from vnpy_ctp import CtpGateway
+
 # from vnpy_spreadtrading import SpreadTradingApp
 # from vnpy_algotrading import AlgoTradingApp
 # from vnpy_optionmaster import OptionMasterApp
@@ -29,7 +31,6 @@ from vnpy.trader.ui import MainWindow, create_qapp
 # from vnpy_da import DaGateway
 # from vnpy_rohon import RohonGateway
 # from vnpy_tts import TtsGateway
-
 
 
 # from vnpy_datarecorder import DataRecorderApp

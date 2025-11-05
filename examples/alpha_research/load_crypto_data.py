@@ -228,9 +228,7 @@ for interval_key, settings in interval_settings.items():
             pricetick=0.0001,
         )
 
-    print(
-        f"{interval_key} 数据处理完成，共处理了 {processed_count} 个加密货币交易对的数据文件"
-    )
+    print(f"{interval_key} 数据处理完成，共处理了 {processed_count} 个加密货币交易对的数据文件")
     total_processed += processed_count
 
 print(f"\n所有时间周期数据处理完成，总共处理了 {total_processed} 个数据文件")

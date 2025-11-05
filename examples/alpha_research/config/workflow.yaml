@@ -1,0 +1,51 @@
+workflow:
+  general:
+    name: mlp_strategy
+    lab_dir: ./lab/crypto_1m
+    index_symbol: CRYPTO_INDEX_1M
+    start: "2020-01-01"
+    end: "2025-09-03"
+    interval: minute
+    extended_days: 100
+    train_period: ["2020-01-01", "2023-12-31"]
+    valid_period: ["2024-01-01", "2024-12-31"]
+    test_period: ["2025-01-01", "2025-09-03"]
+
+  steps:
+    - type: load_data
+      enabled: false
+
+    - type: process_features
+      enabled: false
+      config: {}
+
+    - type: train_model
+      enabled: true
+      model: MlpModel
+      config:
+        input_size: 158
+        hidden_sizes: [256]
+        lr: 0.002
+        optimizer: adam
+        n_epochs: 50
+        batch_size: 8192
+        weight_decay: 0.0002
+        seed: 42
+        device: cpu
+
+    - type: predict_signal
+      enabled: false
+      config: {}
+
+    - type: backtesting
+      enabled: false
+      config:
+        interval: minute
+        start: "2025-01-01"
+        end: "2025-10-31"
+        capital: 100000000
+        setting:
+          top_k: 10
+          n_drop: 3
+          hold_thresh: 3
+          signal_path: "csi300" 

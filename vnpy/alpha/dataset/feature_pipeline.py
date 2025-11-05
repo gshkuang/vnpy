@@ -30,10 +30,13 @@ import duckdb
 import polars as pl
 import tqdm
 
-from vnpy.alpha.dataset.processor import (process_stats_cs_norm,  # 统一处理函数
-                                          process_stats_ts_norm)
-from vnpy.alpha.dataset.sql_builder import (build_split_select_sql,
-                                            build_stats_sql)
+from vnpy.alpha.dataset.processor import process_batch_cs_norm  # 统一处理函数
+from vnpy.alpha.dataset.processor import process_batch_ts_norm
+from vnpy.alpha.dataset.sql_builder import (
+    build_label_rank_sql,
+    build_split_select_sql,
+    build_stats_sql,
+)
 from vnpy.alpha.dataset.utility import to_datetime
 from vnpy.alpha.logger import log_time_memory
 
@@ -120,7 +123,7 @@ def comupte_norm_stats(
     stats_out_dir: Path,
     fit_start_time: Optional[datetime | str] = None,
     fit_end_time: Optional[datetime | str] = None,
-    row_method: Literal["zscore", "robust"] = "zscore",
+    row_method: Literal["zscore", "robust", "rank"] = "zscore",
     col_method: Literal["zscore", "robust"] = "robust",
     batch_size=100,
     con=duckdb.connect(),
@@ -162,23 +165,34 @@ def comupte_norm_stats(
     print("[Stats][global] shape:", global_df.shape)
 
     # ---------- Per-datetime stats ----------
-    dt_df = process_cs_stats(
-        con=con,
-        glob_path=glob_path,
-        features=["label"],  # 只针对label做cs归一化
-        method=row_method,
-    )
-    dt_df.write_parquet(stats_out_dir / "datetime_stats.parquet")
-    # Log stats preview
-    print("[Stats][datetime] shape:", dt_df.shape)
+    if row_method != "rank":
+        dt_df = process_cs_stats(
+            con=con,
+            glob_path=glob_path,
+            features=["label"],  # 只针对label做cs归一化
+            method=row_method,
+        )
+        dt_df.write_parquet(stats_out_dir / "datetime_stats.parquet")
+        # Log stats preview
+        print("[Stats][datetime] shape:", dt_df.shape)
+    else:  # rank只针对label
+        # 在 DuckDB 中构建并执行 label 的截面 rank SQL
+        rank_sql = build_label_rank_sql(
+            glob_path=glob_path,
+            fit_start_time=fit_start_time,
+            fit_end_time=fit_end_time,
+        )
+        dt_df = con.execute(rank_sql).pl()
+        dt_df.write_parquet(stats_out_dir / "datetime_stats.parquet")
+        print("[Stats][datetime-rank] shape:", dt_df.shape)
 
 
 @log_time_memory
-def normalize_feat(
+def batch_normalize_feat(
     feat_dir: Path,
     stats_dir: Path,
     out_dir: Path,
-    row_method: Literal["zscore", "robust"] = "zscore",
+    row_method: Literal["zscore", "robust", "rank"] = "zscore",
     col_method: Literal["zscore", "robust"] = "robust",
 ) -> None:
     """
@@ -198,13 +212,14 @@ def normalize_feat(
     # 使用stats_lf进行两阶段归一化：先列（global），后行（cross-sectional）
     global_stats_path = stats_dir / "global_stats.parquet"
     global_stats_lf = pl.scan_parquet(str(global_stats_path))
+    # 加载截面统计（rank 模式下包含 datetime, vt_symbol, label_rank）
     dt_stats_path = stats_dir / "datetime_stats.parquet"
     dt_lf = pl.scan_parquet(str(dt_stats_path))
 
     for file in tqdm.tqdm(parquet_files, desc="Normalizing features"):
         lf = pl.scan_parquet(str(file))
-        lf = process_stats_ts_norm(lf, global_stats_lf, features, col_method)
-        lf = process_stats_cs_norm(lf, dt_lf, ["label"], row_method)
+        lf = process_batch_ts_norm(lf, global_stats_lf, features, col_method)
+        lf = process_batch_cs_norm(lf, dt_lf, ["label"], row_method)  # type: ignore[arg-type]
         lf = lf.drop_nans()
         lf = lf.drop_nulls()
         out_path = out_dir / file.name
@@ -274,7 +289,7 @@ def feat_norm_pipeline(
     out_dir: Path,
     fit_start: Optional[datetime] = None,
     fit_end: Optional[datetime] = None,
-    row_method: Literal["zscore", "robust"] = "zscore",
+    row_method: Literal["zscore", "robust", "rank"] = "zscore",
     col_method: Literal["zscore", "robust"] = "robust",
 ) -> None:
     stats_dir.mkdir(parents=True, exist_ok=True)
@@ -288,7 +303,7 @@ def feat_norm_pipeline(
         row_method=row_method,
         col_method=col_method,
     )
-    normalize_feat(
+    batch_normalize_feat(
         feat_dir=feat_dir,
         stats_dir=stats_dir,
         out_dir=out_dir,

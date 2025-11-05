@@ -1,15 +1,15 @@
 workflow:
   general:
     name: mlp_strategy
-    lab_dir: /home/lai/test_v1/lab/crypto_1m
-    index_symbol: CRYPTO_INDEX_1M
-    start: "2020-01-01"
-    end: "2025-09-03"
-    interval: minute
+    lab_dir: ./lab/csi300
+    index_symbol: 000300.SSE
+    start: "2007-01-01"
+    end: "2024-10-31"
+    interval: daily
     extended_days: 100
-    train_period: ["2020-01-01", "2023-12-31"]
-    valid_period: ["2024-01-01", "2024-12-31"]
-    test_period: ["2025-01-01", "2025-09-03"]
+    train_period: ["2007-01-01", "2020-12-31"]
+    valid_period: ["2021-01-01", "2021-12-31"]
+    test_period: ["2022-01-01", "2024-10-31"]
 
   steps:
     - type: load_data
@@ -40,11 +40,12 @@ workflow:
     - type: backtesting
       enabled: false
       config:
-        interval: minute
-        start: "2025-01-01"
-        end: "2025-10-31"
+        interval: daily
+        start: "2022-01-01"
+        end: "2024-10-31"
         capital: 100000000
         setting:
-          top_k: 10
+          top_k: 30
           n_drop: 3
           hold_thresh: 3
+          signal_name: "mlp_strategy" 

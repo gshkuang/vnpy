@@ -12,15 +12,36 @@ from vnpy.event import Event, EventEngine
 
 from .app import BaseApp
 from .converter import OffsetConverter
-from .event import (EVENT_ACCOUNT, EVENT_CONTRACT, EVENT_LOG, EVENT_ORDER,
-                    EVENT_POSITION, EVENT_QUOTE, EVENT_TICK, EVENT_TRADE)
+from .event import (
+    EVENT_ACCOUNT,
+    EVENT_CONTRACT,
+    EVENT_LOG,
+    EVENT_ORDER,
+    EVENT_POSITION,
+    EVENT_QUOTE,
+    EVENT_TICK,
+    EVENT_TRADE,
+)
 from .gateway import BaseGateway
 from .locale import _
 from .logger import CRITICAL, DEBUG, ERROR, INFO, WARNING, logger
-from .object import (AccountData, BarData, CancelRequest, ContractData,
-                     Exchange, HistoryRequest, LogData, OrderData,
-                     OrderRequest, PositionData, QuoteData, QuoteRequest,
-                     SubscribeRequest, TickData, TradeData)
+from .object import (
+    AccountData,
+    BarData,
+    CancelRequest,
+    ContractData,
+    Exchange,
+    HistoryRequest,
+    LogData,
+    OrderData,
+    OrderRequest,
+    PositionData,
+    QuoteData,
+    QuoteRequest,
+    SubscribeRequest,
+    TickData,
+    TradeData,
+)
 from .setting import SETTINGS
 from .utility import TRADER_DIR
 
@@ -118,47 +139,47 @@ class MainEngine:
         self.get_tick: Callable[[str], TickData | None] = oms_engine.get_tick
         self.get_order: Callable[[str], OrderData | None] = oms_engine.get_order
         self.get_trade: Callable[[str], TradeData | None] = oms_engine.get_trade
-        self.get_position: Callable[[str], PositionData | None] = (
-            oms_engine.get_position
-        )
+        self.get_position: Callable[
+            [str], PositionData | None
+        ] = oms_engine.get_position
         self.get_account: Callable[[str], AccountData | None] = oms_engine.get_account
-        self.get_contract: Callable[[str], ContractData | None] = (
-            oms_engine.get_contract
-        )
+        self.get_contract: Callable[
+            [str], ContractData | None
+        ] = oms_engine.get_contract
         self.get_quote: Callable[[str], QuoteData | None] = oms_engine.get_quote
         self.get_all_ticks: Callable[[], list[TickData]] = oms_engine.get_all_ticks
         self.get_all_orders: Callable[[], list[OrderData]] = oms_engine.get_all_orders
         self.get_all_trades: Callable[[], list[TradeData]] = oms_engine.get_all_trades
-        self.get_all_positions: Callable[[], list[PositionData]] = (
-            oms_engine.get_all_positions
-        )
-        self.get_all_accounts: Callable[[], list[AccountData]] = (
-            oms_engine.get_all_accounts
-        )
-        self.get_all_contracts: Callable[[], list[ContractData]] = (
-            oms_engine.get_all_contracts
-        )
+        self.get_all_positions: Callable[
+            [], list[PositionData]
+        ] = oms_engine.get_all_positions
+        self.get_all_accounts: Callable[
+            [], list[AccountData]
+        ] = oms_engine.get_all_accounts
+        self.get_all_contracts: Callable[
+            [], list[ContractData]
+        ] = oms_engine.get_all_contracts
         self.get_all_quotes: Callable[[], list[QuoteData]] = oms_engine.get_all_quotes
-        self.get_all_active_orders: Callable[[], list[OrderData]] = (
-            oms_engine.get_all_active_orders
-        )
-        self.get_all_active_quotes: Callable[[], list[QuoteData]] = (
-            oms_engine.get_all_active_quotes
-        )
-        self.update_order_request: Callable[[OrderRequest, str, str], None] = (
-            oms_engine.update_order_request
-        )
+        self.get_all_active_orders: Callable[
+            [], list[OrderData]
+        ] = oms_engine.get_all_active_orders
+        self.get_all_active_quotes: Callable[
+            [], list[QuoteData]
+        ] = oms_engine.get_all_active_quotes
+        self.update_order_request: Callable[
+            [OrderRequest, str, str], None
+        ] = oms_engine.update_order_request
         self.convert_order_request: Callable[
             [OrderRequest, str, bool, bool], list[OrderRequest]
         ] = oms_engine.convert_order_request
-        self.get_converter: Callable[[str], OffsetConverter | None] = (
-            oms_engine.get_converter
-        )
+        self.get_converter: Callable[
+            [str], OffsetConverter | None
+        ] = oms_engine.get_converter
 
         email_engine: EmailEngine = self.add_engine(EmailEngine)
-        self.send_email: Callable[[str, str, str | None], None] = (
-            email_engine.send_email
-        )
+        self.send_email: Callable[
+            [str, str, str | None], None
+        ] = email_engine.send_email
 
     def write_log(self, msg: str, source: str = "MainEngine") -> None:
         """

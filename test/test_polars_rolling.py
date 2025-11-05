@@ -58,9 +58,7 @@ def test_rolling_with_2i_period():
     actual_means = result["rolling_mean"].to_list()
     actual_counts = result["rolling_count"].to_list()
 
-    assert (
-        actual_sums == expected_sums
-    ), f"期望和: {expected_sums}, 实际和: {actual_sums}"
+    assert actual_sums == expected_sums, f"期望和: {expected_sums}, 实际和: {actual_sums}"
     assert (
         actual_means == expected_means
     ), f"期望平均值: {expected_means}, 实际平均值: {actual_means}"

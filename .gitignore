@@ -40,3 +40,6 @@ _templates
 
 # Alpha
 lab/
+
+__pycache__
+IFLOW.md

@@ -19,8 +19,10 @@ import polars as pl
 import yaml
 
 import vnpy.alpha.strategy.strategies.equity_demo_strategy as equity_demo_strategy
+from vnpy.alpha.config.strategy_config import StrategyConfig
+from vnpy.trader.optimize import OptimizationSetting
 from vnpy.alpha import AlphaDataset, AlphaLab, AlphaModel, logger
-from vnpy.alpha.dataset.config import DATASET_CONFIG
+from vnpy.alpha.config.dataset import DATASET_CONFIG
 from vnpy.alpha.dataset.datasets.alpha_158 import Alpha158
 from vnpy.alpha.model.models.mlp_model import MlpModel
 from vnpy.alpha.strategy import BacktestingEngine
@@ -210,7 +212,7 @@ def step_backtesting(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
         end=end_dt,
         capital=capital,
     )
-    setting = bt_cfg.get("setting", {"top_k": 30, "n_drop": 3, "hold_thresh": 3})
+    setting = bt_cfg.get("setting", {"top_k": 30, "n_drop": 3, "min_days": 3})
     engine.add_strategy(equity_demo_strategy.EquityDemoStrategy, setting, signal)
 
     engine.load_data()
@@ -218,6 +220,111 @@ def step_backtesting(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
     engine.calculate_result()
     engine.calculate_statistics()
     engine.show_chart()
+
+
+@register_step("optimize_params")
+def step_optimize_params(ctx: WorkflowContext, step_cfg: Dict[str, Any]) -> None:
+    """使用 Optuna 进行参数调优"""
+    lab: AlphaLab = ctx.lab
+    # 加载信号
+    signal = lab.load_signal(ctx.name)
+    if signal is None:
+        raise FileNotFoundError("信号文件不存在，请先执行 predict_signal")
+
+    vt_symbols = ctx.component_symbols
+
+    engine = BacktestingEngine(lab)
+    opt_cfg = step_cfg.get("config", {})
+
+    start_dt = datetime.fromisoformat(opt_cfg.get("start", ctx.train_period[0]))
+    end_dt = datetime.fromisoformat(opt_cfg.get("end", ctx.valid_period[1]))
+    capital = float(opt_cfg.get("capital", 100000000))
+
+    engine.set_parameters(
+        vt_symbols=vt_symbols,
+        interval=ctx.interval_enum,
+        start=start_dt,
+        end=end_dt,
+        capital=capital,
+    )
+
+    # 通过策略管理器加载策略及参数范围
+    strategy_config_path = opt_cfg.get(
+        "strategy_config_path",
+        str(
+            Path(__file__).resolve().parents[2]
+            / "vnpy"
+            / "alpha"
+            / "strategy"
+            / "strategy_configs.yaml"
+        ),
+    )
+    strategy_name = opt_cfg.get("strategy_name", "EquityDemoStrategy")
+
+    manager = StrategyManager(config_file=strategy_config_path)
+    strategy_class = manager.get_strategy_class(strategy_name)
+    base_setting = manager.get_default_params(strategy_name)
+    param_ranges = manager.get_param_ranges(strategy_name)
+
+    # 添加策略与信号（使用默认参数作为初始上下文）
+    engine.add_strategy(strategy_class, base_setting, signal)
+
+    # 构造 OptimizationSetting
+    optimization_setting = OptimizationSetting()
+    # 固定参数（默认参数里存在但未包含在范围内的）
+    for k, v in base_setting.items():
+        if k not in param_ranges:
+            optimization_setting.add_parameter(k, float(v))
+
+    # 需要优化的参数范围
+    for name, rng in param_ranges.items():
+        # 支持 [min, max, step] 的数值范围
+        if isinstance(rng, list) and len(rng) == 3:
+            optimization_setting.add_parameter(
+                name, float(rng[0]), float(rng[1]), float(rng[2])
+            )
+        else:
+            # 其他情况按固定值处理
+            optimization_setting.add_parameter(
+                name, float(rng[0]) if isinstance(rng, list) else float(rng)
+            )
+
+    target_name = opt_cfg.get("target_name", "sharpe_ratio")
+    optimization_setting.set_target(target_name)
+
+    n_trials = int(opt_cfg.get("n_trials", 50))
+    timeout = opt_cfg.get("timeout", None)
+    direction = opt_cfg.get("direction", "maximize")
+
+    # 运行 Optuna 调优
+    results = engine.run_optuna_optimization(
+        optimization_setting,
+        output=True,
+        n_trials=n_trials,
+        timeout=timeout,
+        direction=direction,
+    )
+
+    # 输出最好结果并进行一次回测展示
+    if results:
+        best_params, best_value, stats = results[0]
+        logger.info(f"最佳参数: {best_params}, 目标({target_name}): {best_value}")
+
+        # 用最佳参数重新回测与展示
+        engine = BacktestingEngine(lab)
+        engine.set_parameters(
+            vt_symbols=vt_symbols,
+            interval=ctx.interval_enum,
+            start=start_dt,
+            end=end_dt,
+            capital=capital,
+        )
+        engine.add_strategy(strategy_class, best_params, signal)
+        engine.load_data()
+        engine.run_backtesting()
+        engine.calculate_result()
+        engine.calculate_statistics()
+        engine.show_chart()
 
 
 # -----------------------------
@@ -248,7 +355,7 @@ def run_step_subprocess(step_type, config_path):
 def main() -> None:
     # 主入口：读取 YAML，按 steps 顺序在子进程执行（尊重 enabled 开关）
     config_path = os.environ.get(
-        "WORKFLOW_CONFIG", str(Path(__file__).with_name("workflow.yaml"))
+        "WORKFLOW_CONFIG", str(Path(__file__).parent / "config" / "workflow.yaml")
     )
     cfg = load_yaml(config_path)
     steps = cfg["workflow"].get("steps", [])
@@ -266,7 +373,7 @@ def main() -> None:
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "run-step":
         step_type = sys.argv[2]
-        config_path = sys.argv[4] if "--config" in sys.argv else "workflow.yaml"
+        config_path = sys.argv[4] if "--config" in sys.argv else "config/workflow.yaml"
         cfg = load_yaml(config_path)
         ctx = build_context(cfg)
         step_cfg = next(

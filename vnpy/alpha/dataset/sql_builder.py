@@ -113,6 +113,17 @@ class DuckDBSQLBuilder:
 
         return median_sql, mad_sql
 
+    def build_cross_sectional_label_rank(self, where_clause: str) -> str:
+        """构建基于 label 的截面 rank SQL（按 datetime 分组），输出 label_rank。"""
+        return f"""
+        SELECT
+          datetime,
+          vt_symbol,
+          (percent_rank() OVER (PARTITION BY datetime ORDER BY label) - 0.5) * 3.46 AS label_rank
+        FROM read_parquet('{self.glob_path}')
+        {where_clause}
+        """
+
     # ==== 新增：数据切分查询 ====
     def build_period_select(
         self, selected_cols: list[str], where_clause: str, shuffle: bool = True
@@ -148,9 +159,7 @@ def build_split_select_sql(
     统一入口：构建按时间区间的切分查询 SQL。
     仅选择 selected_cols，WHERE 由时间区间构造，支持随机排序。
     """
-    builder = DuckDBSQLBuilder(
-        glob_path, features=[]
-    )  # features 未用，仅复用 where 构造
+    builder = DuckDBSQLBuilder(glob_path, features=[])  # features 未用，仅复用 where 构造
     where_clause = builder._build_where_clause(fit_start_time, fit_end_time)
     return builder.build_period_select(selected_cols, where_clause, shuffle)
 
@@ -195,3 +204,14 @@ def build_stats_sql(
             # print(f"[DuckDB SQL][cross_sectional][robust][median]\n{median_sql}")
             # print(f"[DuckDB SQL][cross_sectional][robust][mad]\n{mad_sql}")
             return (median_sql, mad_sql)
+
+
+def build_label_rank_sql(
+    glob_path: str,
+    fit_start_time: Optional[datetime] = None,
+    fit_end_time: Optional[datetime] = None,
+) -> str:
+    """统一入口：构建 label 的截面 rank SQL（按 datetime 分组）。"""
+    builder = DuckDBSQLBuilder(glob_path, features=[])
+    where_clause = builder._build_where_clause(fit_start_time, fit_end_time)
+    return builder.build_cross_sectional_label_rank(where_clause)

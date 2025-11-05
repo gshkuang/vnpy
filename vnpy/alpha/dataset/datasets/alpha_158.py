@@ -1,13 +1,27 @@
 import polars as pl
 
 from vnpy.alpha import AlphaDataset
-from vnpy.alpha.dataset.config import DATASET_CONFIG
-from vnpy.alpha.dataset.ts_function import (ts_abs, ts_argmax, ts_argmin,
-                                            ts_corr, ts_delay, ts_greater,
-                                            ts_less, ts_log, ts_max, ts_mean,
-                                            ts_min, ts_quantile, ts_rank,
-                                            ts_resi, ts_rsquare, ts_slope,
-                                            ts_std, ts_sum)
+from vnpy.alpha.config.dataset import DATASET_CONFIG
+from vnpy.alpha.dataset.ts_function import (
+    ts_abs,
+    ts_argmax,
+    ts_argmin,
+    ts_corr,
+    ts_delay,
+    ts_greater,
+    ts_less,
+    ts_log,
+    ts_max,
+    ts_mean,
+    ts_min,
+    ts_quantile,
+    ts_rank,
+    ts_resi,
+    ts_rsquare,
+    ts_slope,
+    ts_std,
+    ts_sum,
+)
 from vnpy.alpha.dataset.utility import FeatProxy
 
 

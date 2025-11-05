@@ -6,8 +6,14 @@ from vnpy.trader.object import BarData
 from vnpy.trader.ui import QtCore, QtGui, QtWidgets
 
 from .axis import DatetimeAxis
-from .base import (BLACK_COLOR, CURSOR_COLOR, GREY_COLOR, NORMAL_FONT,
-                   WHITE_COLOR, to_int)
+from .base import (
+    BLACK_COLOR,
+    CURSOR_COLOR,
+    GREY_COLOR,
+    NORMAL_FONT,
+    WHITE_COLOR,
+    to_int,
+)
 from .item import ChartItem
 from .manager import BarManager
 

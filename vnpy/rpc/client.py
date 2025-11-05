@@ -162,7 +162,5 @@ class RpcClient:
         """
         Callback when heartbeat is lost.
         """
-        msg: str = (
-            f"RpcServer has no response over {HEARTBEAT_TOLERANCE} seconds, please check you connection."
-        )
+        msg: str = f"RpcServer has no response over {HEARTBEAT_TOLERANCE} seconds, please check you connection."
         print(msg)

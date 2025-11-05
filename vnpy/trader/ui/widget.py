@@ -14,11 +14,26 @@ from tzlocal import get_localzone_name
 
 from ..constant import Direction, Exchange, Offset, OrderType
 from ..engine import Event, EventEngine, MainEngine
-from ..event import (EVENT_ACCOUNT, EVENT_LOG, EVENT_ORDER, EVENT_POSITION,
-                     EVENT_QUOTE, EVENT_TICK, EVENT_TRADE)
+from ..event import (
+    EVENT_ACCOUNT,
+    EVENT_LOG,
+    EVENT_ORDER,
+    EVENT_POSITION,
+    EVENT_QUOTE,
+    EVENT_TICK,
+    EVENT_TRADE,
+)
 from ..locale import _
-from ..object import (CancelRequest, ContractData, OrderData, OrderRequest,
-                      PositionData, QuoteData, SubscribeRequest, TickData)
+from ..object import (
+    CancelRequest,
+    ContractData,
+    OrderData,
+    OrderRequest,
+    PositionData,
+    QuoteData,
+    SubscribeRequest,
+    TickData,
+)
 from ..setting import SETTING_FILENAME, SETTINGS
 from ..utility import ZoneInfo, get_digits, load_json, save_json
 from .qt import Qt, QtCore, QtGui, QtWidgets
@@ -1108,9 +1123,7 @@ class ContractManager(QtWidgets.QWidget):
         self.resize(1000, 600)
 
         self.filter_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
-        self.filter_line.setPlaceholderText(
-            _("输入合约代码或者交易所，留空则查询所有合约")
-        )
+        self.filter_line.setPlaceholderText(_("输入合约代码或者交易所，留空则查询所有合约"))
 
         self.button_show: QtWidgets.QPushButton = QtWidgets.QPushButton(_("查询"))
         self.button_show.clicked.connect(self.show_contracts)

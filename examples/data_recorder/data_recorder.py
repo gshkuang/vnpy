@@ -99,10 +99,8 @@ def run_recorder() -> None:
 
         # 判断合约是否符合录制条件
         if (
-            contract.exchange
-            in recording_exchanges  # 检查合约所属交易所是否在预设列表中
-            and contract.product
-            in recording_products  # 检查合约品种类型是否在预设列表中
+            contract.exchange in recording_exchanges  # 检查合约所属交易所是否在预设列表中
+            and contract.product in recording_products  # 检查合约品种类型是否在预设列表中
         ):
             # 添加该合约的行情录制任务，vt_symbol是VeighNa中的唯一标识符，格式为"代码.交易所"
             recorder_engine.add_tick_recording(contract.vt_symbol)  # 录制Tick数据
